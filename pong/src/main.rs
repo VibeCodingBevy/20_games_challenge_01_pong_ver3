@@ -91,36 +91,41 @@ fn game_logic(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mut score: ResMut<Score>,
-    mut left_paddle_q: Query<&mut Transform, With<LeftPaddle>>,
-    mut right_paddle_q: Query<&mut Transform, With<RightPaddle>>,
+    mut left_paddle_q: Query<&mut Transform, (With<LeftPaddle>, Without<Ballobj>, Without<RightPaddle>)>,
+    mut right_paddle_q: Query<&mut Transform, (With<RightPaddle>, Without<Ballobj>, Without<LeftPaddle>)>,
     mut ball_q: Query<(&mut Transform, &mut Velocity), With<Ballobj>>,
-    left_paddle_data: Query<&Transform, With<LeftPaddle>>,
-    right_paddle_data: Query<&Transform, With<RightPaddle>>,
-    mut text_q: Query<&mut Text2d>,
 ) {
     let mut dir = 0.0;
     if keys.pressed(KeyCode::ArrowUp) { dir += 1.0; }
     if keys.pressed(KeyCode::ArrowDown) { dir -= 1.0; }
-    
-    if dir != 0.0 {
+
+    let (lp_pos, rp_pos) = {
         let wt = cfg.arena.wall_thickness;
         let sh = cfg.screen.height as f32;
         let min_y = wt + cfg.paddle.height / 2.0;
         let max_y = sh - wt - cfg.paddle.height / 2.0;
-        
-        for mut t in left_paddle_q.iter_mut() {
-            t.translation.y += dir * cfg.paddle.speed * time.delta_secs();
-            t.translation.y = t.translation.y.clamp(min_y, max_y);
+
+        let mut lp_pos = None;
+        let mut rp_pos = None;
+        for t in left_paddle_q.iter() { lp_pos = Some(t.translation); }
+        for t in right_paddle_q.iter() { rp_pos = Some(t.translation); }
+
+        if dir != 0.0 {
+            for mut t in left_paddle_q.iter_mut() {
+                t.translation.y += dir * cfg.paddle.speed * time.delta_secs();
+                t.translation.y = t.translation.y.clamp(min_y, max_y);
+            }
+            for mut t in right_paddle_q.iter_mut() {
+                t.translation.y += dir * cfg.paddle.speed * time.delta_secs();
+                t.translation.y = t.translation.y.clamp(min_y, max_y);
+            }
         }
-        for mut t in right_paddle_q.iter_mut() {
-            t.translation.y += dir * cfg.paddle.speed * time.delta_secs();
-            t.translation.y = t.translation.y.clamp(min_y, max_y);
-        }
-    }
+        (lp_pos, rp_pos)
+    };
 
     let ball_result = ball_q.single_mut();
     let Ok((mut bt, mut vel)) = ball_result else { return; };
-    
+
     let speed = cfg.ball.speed;
     let r = cfg.ball.diameter / 2.0;
     let wt = cfg.arena.wall_thickness;
@@ -130,23 +135,23 @@ fn game_logic(
     let ph = cfg.paddle.height;
 
     bt.translation += vel.0.extend(0.0) * time.delta_secs();
-    if bt.translation.y - r <= wt { bt.translation.y = wt + r; vel.0.y = speed; } 
+    if bt.translation.y - r <= wt { bt.translation.y = wt + r; vel.0.y = speed; }
     else if bt.translation.y + r >= sh - wt { bt.translation.y = sh - wt - r; vel.0.y = -speed; }
 
-    if let Ok(lp) = left_paddle_data.single() {
-        let lx = lp.translation.x + pw;
-        if bt.translation.x - r <= lx && bt.translation.x >= lx - pw && bt.translation.y >= lp.translation.y - ph/2.0 && bt.translation.y <= lp.translation.y + ph/2.0 {
-            let ho = (bt.translation.y - lp.translation.y) / (ph / 2.0);
+    if let Some(lp) = lp_pos {
+        let lx = lp.x + pw;
+        if bt.translation.x - r <= lx && bt.translation.x >= lx - pw && bt.translation.y >= lp.y - ph/2.0 && bt.translation.y <= lp.y + ph/2.0 {
+            let ho = (bt.translation.y - lp.y) / (ph / 2.0);
             let a = ho.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             vel.0 = Vec2::new(speed * a.cos(), speed * a.sin());
             bt.translation.x = lx + r;
         }
     }
-    
-    if let Ok(rp) = right_paddle_data.single() {
-        let rx = rp.translation.x - pw;
-        if bt.translation.x + r >= rx && bt.translation.x <= rx + pw && bt.translation.y >= rp.translation.y - ph/2.0 && bt.translation.y <= rp.translation.y + ph/2.0 {
-            let ho = (bt.translation.y - rp.translation.y) / (ph / 2.0);
+
+    if let Some(rp) = rp_pos {
+        let rx = rp.x - pw;
+        if bt.translation.x + r >= rx && bt.translation.x <= rx + pw && bt.translation.y >= rp.y - ph/2.0 && bt.translation.y <= rp.y + ph/2.0 {
+            let ho = (bt.translation.y - rp.y) / (ph / 2.0);
             let a = ho.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             vel.0 = Vec2::new(-speed * a.cos(), speed * a.sin());
             bt.translation.x = rx - r;
@@ -156,14 +161,10 @@ fn game_logic(
     let mut scored = false;
     if bt.translation.x < 0.0 { score.right += 1; scored = true; }
     else if bt.translation.x > sw { score.left += 1; scored = true; }
-    
+
     if scored {
         bt.translation.x = sw / 2.0;
         bt.translation.y = sh / 2.0;
         vel.0 = Vec2::new(speed, speed);
-    }
-
-    if let Ok(mut t) = text_q.single_mut() {
-        t.0 = format!("{} - {}", score.left, score.right);
     }
 }
