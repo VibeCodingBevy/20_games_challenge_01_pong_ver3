@@ -54,18 +54,20 @@ fn setup(mut cmds: Commands, cfg: Res<Config>) {
     let wt = cfg.arena.wall_thickness;
     let sw = cfg.screen.width as f32;
     let sh = cfg.screen.height as f32;
-    let py = sh / 2.0;
-    let lx = cfg.paddle.margin + cfg.paddle.width / 2.0;
-    let rx = sw - cfg.paddle.margin - cfg.paddle.width / 2.0;
+    let half_w = sw / 2.0;
+    let half_h = sh / 2.0;
+    let py = 0.0;
+    let lx = -half_w + cfg.paddle.margin + cfg.paddle.width / 2.0;
+    let rx = half_w - cfg.paddle.margin - cfg.paddle.width / 2.0;
 
     // Top/bottom walls
     let mut tw = cmds.spawn_empty();
     tw.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(sw, wt)));
-    tw.insert(Transform::from_xyz(sw / 2.0, sh - wt / 2.0, 0.0));
+    tw.insert(Transform::from_xyz(0.0, half_h - wt / 2.0, 0.0));
 
     let mut bw = cmds.spawn_empty();
     bw.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(sw, wt)));
-    bw.insert(Transform::from_xyz(sw / 2.0, wt / 2.0, 0.0));
+    bw.insert(Transform::from_xyz(0.0, -half_h + wt / 2.0, 0.0));
 
     // Paddles
     let mut lp = cmds.spawn_empty();
@@ -81,7 +83,7 @@ fn setup(mut cmds: Commands, cfg: Res<Config>) {
     // Ball
     let mut b = cmds.spawn_empty();
     b.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(cfg.ball.diameter, cfg.ball.diameter)));
-    b.insert(Transform::from_xyz(sw / 2.0, sh / 2.0, 0.0));
+    b.insert(Transform::from_xyz(0.0, 0.0, 0.0));
     b.insert(Ballobj);
     b.insert(Velocity(Vec2::new(cfg.ball.speed, cfg.ball.speed)));
 }
@@ -99,11 +101,13 @@ fn game_logic(
     if keys.pressed(KeyCode::ArrowUp) { dir += 1.0; }
     if keys.pressed(KeyCode::ArrowDown) { dir -= 1.0; }
 
+    let half_w = cfg.screen.width as f32 / 2.0;
+    let half_h = cfg.screen.height as f32 / 2.0;
+
     let (lp_pos, rp_pos) = {
         let wt = cfg.arena.wall_thickness;
-        let sh = cfg.screen.height as f32;
-        let min_y = wt + cfg.paddle.height / 2.0;
-        let max_y = sh - wt - cfg.paddle.height / 2.0;
+        let min_y = -half_h + wt + cfg.paddle.height / 2.0;
+        let max_y = half_h - wt - cfg.paddle.height / 2.0;
 
         let mut lp_pos = None;
         let mut rp_pos = None;
@@ -129,14 +133,12 @@ fn game_logic(
     let speed = cfg.ball.speed;
     let r = cfg.ball.diameter / 2.0;
     let wt = cfg.arena.wall_thickness;
-    let sw = cfg.screen.width as f32;
-    let sh = cfg.screen.height as f32;
     let pw = cfg.paddle.width;
     let ph = cfg.paddle.height;
 
     bt.translation += vel.0.extend(0.0) * time.delta_secs();
-    if bt.translation.y - r <= wt { bt.translation.y = wt + r; vel.0.y = speed; }
-    else if bt.translation.y + r >= sh - wt { bt.translation.y = sh - wt - r; vel.0.y = -speed; }
+    if bt.translation.y - r <= -half_h + wt { bt.translation.y = -half_h + wt + r; vel.0.y = speed; }
+    else if bt.translation.y + r >= half_h - wt { bt.translation.y = half_h - wt - r; vel.0.y = -speed; }
 
     if let Some(lp) = lp_pos {
         let lx = lp.x + pw;
@@ -159,12 +161,12 @@ fn game_logic(
     }
 
     let mut scored = false;
-    if bt.translation.x < 0.0 { score.right += 1; scored = true; }
-    else if bt.translation.x > sw { score.left += 1; scored = true; }
+    if bt.translation.x < -half_w { score.right += 1; scored = true; }
+    else if bt.translation.x > half_w { score.left += 1; scored = true; }
 
     if scored {
-        bt.translation.x = sw / 2.0;
-        bt.translation.y = sh / 2.0;
+        bt.translation.x = 0.0;
+        bt.translation.y = 0.0;
         vel.0 = Vec2::new(speed, speed);
     }
 }
