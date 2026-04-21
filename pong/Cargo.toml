@@ -3,6 +3,10 @@ name = "pong"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "pong_lib"
+path = "src/lib.rs"
+
 [dependencies]
 bevy = { version = "0.18", features = ["2d", "web", "default_font"] }
 serde = { version = "1", features = ["derive"] }
