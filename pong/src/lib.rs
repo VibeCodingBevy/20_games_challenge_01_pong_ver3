@@ -22,20 +22,103 @@ pub struct Arena { pub wall_thickness: f32 }
 #[derive(Component)] pub struct RightPaddle;
 #[derive(Component)] pub struct Ballobj;
 #[derive(Component)] pub struct Velocity(pub Vec2);
+#[derive(Component)] pub struct Wall;
 
 #[derive(Resource)] pub struct Score { pub left: u32, pub right: u32 }
+
+#[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GameState {
+    #[default]
+    Menu,
+    InGame,
+    GameOver,
+}
 
 pub struct PongPlugin;
 
 impl Plugin for PongPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
-            .add_systems(Update, game_logic);
+        app.init_state::<GameState>()
+            .add_systems(Startup, setup)
+            .add_systems(OnEnter(GameState::Menu), show_menu)
+            .add_systems(OnExit(GameState::Menu), hide_menu)
+            .add_systems(OnEnter(GameState::InGame), (spawn_game_objects, reset_score))
+            .add_systems(OnExit(GameState::InGame), despawn_game_objects)
+            .add_systems(OnEnter(GameState::GameOver), show_game_over)
+            .add_systems(OnExit(GameState::GameOver), hide_game_over)
+            .add_systems(Update, game_logic.run_if(in_state(GameState::InGame)))
+            .add_systems(Update, menu_input.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, game_over_input.run_if(in_state(GameState::GameOver)));
     }
 }
 
-fn setup(mut cmds: Commands, config: Res<Config>) {
+fn setup(mut cmds: Commands, _config: Res<Config>) {
     cmds.spawn(Camera2d);
+}
+
+#[derive(Component)]
+struct MenuText;
+
+#[derive(Component)]
+struct GameOverText;
+
+fn show_game_over(mut cmds: Commands, score: Res<Score>) {
+    let winner = if score.left >= 10 { "Player 1" } else { "Player 2" };
+    cmds.spawn((
+        Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Menu", winner)),
+        Transform::from_xyz(0.0, 0.0, 1.0),
+    ))
+    .insert(GameOverText);
+}
+
+fn hide_game_over(mut commands: Commands, query: Query<Entity, With<GameOverText>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn game_over_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut score: ResMut<Score>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        score.left = 0;
+        score.right = 0;
+        next_state.set(GameState::InGame);
+    } else if keys.just_pressed(KeyCode::Escape) {
+        score.left = 0;
+        score.right = 0;
+        next_state.set(GameState::Menu);
+    }
+}
+
+fn reset_score(mut score: ResMut<Score>) {
+    score.left = 0;
+    score.right = 0;
+}
+
+fn show_menu(mut cmds: Commands) {
+    cmds.spawn((
+        Text::new("PONG\n\nPress Space to Start"),
+        Transform::from_xyz(0.0, 0.0, 1.0),
+    ))
+    .insert(MenuText);
+}
+
+fn hide_menu(mut commands: Commands, menu_query: Query<Entity, With<MenuText>>) {
+    for entity in menu_query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn menu_input(keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<GameState>>) {
+    if keys.just_pressed(KeyCode::Space) {
+        next_state.set(GameState::InGame);
+    }
+}
+
+fn spawn_game_objects(mut cmds: Commands, config: Res<Config>) {
     let wt = config.arena.wall_thickness;
     let sw = config.screen.width as f32;
     let sh = config.screen.height as f32;
@@ -48,10 +131,12 @@ fn setup(mut cmds: Commands, config: Res<Config>) {
     let mut tw = cmds.spawn_empty();
     tw.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(sw, wt)));
     tw.insert(Transform::from_xyz(0.0, half_h - wt / 2.0, 0.0));
+    tw.insert(Wall);
 
     let mut bw = cmds.spawn_empty();
     bw.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(sw, wt)));
     bw.insert(Transform::from_xyz(0.0, -half_h + wt / 2.0, 0.0));
+    bw.insert(Wall);
 
     let mut lp = cmds.spawn_empty();
     lp.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.paddle.width, config.paddle.height)));
@@ -70,11 +155,26 @@ fn setup(mut cmds: Commands, config: Res<Config>) {
     b.insert(Velocity(Vec2::new(config.ball.speed, config.ball.speed)));
 }
 
+fn despawn_game_objects(
+    mut commands: Commands,
+    left_paddles: Query<Entity, With<LeftPaddle>>,
+    right_paddles: Query<Entity, With<RightPaddle>>,
+    balls: Query<Entity, With<Ballobj>>,
+    walls: Query<Entity, With<Wall>>,
+) {
+    for entity in left_paddles.iter().chain(right_paddles.iter()).chain(balls.iter()).chain(walls.iter()) {
+        commands.entity(entity).despawn();
+    }
+}
+
+const WINNING_SCORE: u32 = 10;
+
 fn game_logic(
     config: Res<Config>,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mut score: ResMut<Score>,
+    mut next_state: ResMut<NextState<GameState>>,
     mut paddles: ParamSet<(
         Query<&mut Transform, (With<LeftPaddle>, Without<Ballobj>)>,
         Query<&mut Transform, (With<RightPaddle>, Without<Ballobj>)>,
@@ -161,5 +261,9 @@ fn game_logic(
         bt.translation.x = 0.0;
         bt.translation.y = 0.0;
         velocity.0 = Vec2::new(speed, speed);
+
+        if score.left >= WINNING_SCORE || score.right >= WINNING_SCORE {
+            next_state.set(GameState::GameOver);
+        }
     }
 }

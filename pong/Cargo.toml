@@ -8,7 +8,7 @@ name = "pong_lib"
 path = "src/lib.rs"
 
 [dependencies]
-bevy = { version = "0.18", features = ["2d", "web", "default_font"] }
+bevy = { version = "0.18", features = ["2d", "ui", "web", "default_font"] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 
