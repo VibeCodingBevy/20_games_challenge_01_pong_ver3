@@ -4,7 +4,7 @@ use serde::Deserialize;
 #[derive(Resource, Deserialize)]
 pub struct Config {
     pub screen: Screen,
-    pub ball: Ball,
+    pub ball: BallConfig,
     pub paddle: Paddle,
     pub arena: Arena,
 }
@@ -12,7 +12,7 @@ pub struct Config {
 #[derive(Deserialize)]
 pub struct Screen { pub width: u32, pub height: u32 }
 #[derive(Deserialize)]
-pub struct Ball { pub diameter: f32, pub speed: f32 }
+pub struct BallConfig { pub diameter: f32, pub speed: f32 }
 #[derive(Deserialize)]
 pub struct Paddle { pub width: f32, pub height: f32, pub margin: f32, pub speed: f32 }
 #[derive(Deserialize)]
@@ -20,8 +20,12 @@ pub struct Arena { pub wall_thickness: f32 }
 
 #[derive(Component)] pub struct LeftPaddle;
 #[derive(Component)] pub struct RightPaddle;
-#[derive(Component)] pub struct Ballobj;
-#[derive(Component)] pub struct Velocity(pub Vec2);
+#[derive(Component)]
+#[require(Transform, Velocity)]
+pub struct Ball;
+
+#[derive(Component, Default)]
+pub struct Velocity(pub Vec2);
 #[derive(Component)] pub struct Wall;
 
 #[derive(Resource)] pub struct Score { pub left: u32, pub right: u32 }
@@ -151,7 +155,7 @@ fn spawn_game_objects(mut cmds: Commands, config: Res<Config>) {
     let mut b = cmds.spawn_empty();
     b.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.ball.diameter, config.ball.diameter)));
     b.insert(Transform::from_xyz(0.0, 0.0, 0.0));
-    b.insert(Ballobj);
+    b.insert(Ball);
     b.insert(Velocity(Vec2::new(config.ball.speed, config.ball.speed)));
 }
 
@@ -159,7 +163,7 @@ fn despawn_game_objects(
     mut commands: Commands,
     left_paddles: Query<Entity, With<LeftPaddle>>,
     right_paddles: Query<Entity, With<RightPaddle>>,
-    balls: Query<Entity, With<Ballobj>>,
+    balls: Query<Entity, With<Ball>>,
     walls: Query<Entity, With<Wall>>,
 ) {
     for entity in left_paddles.iter().chain(right_paddles.iter()).chain(balls.iter()).chain(walls.iter()) {
@@ -176,10 +180,10 @@ fn game_logic(
     mut score: ResMut<Score>,
     mut next_state: ResMut<NextState<GameState>>,
     mut paddles: ParamSet<(
-        Query<&mut Transform, (With<LeftPaddle>, Without<Ballobj>)>,
-        Query<&mut Transform, (With<RightPaddle>, Without<Ballobj>)>,
+        Query<&mut Transform, (With<LeftPaddle>, Without<Ball>)>,
+        Query<&mut Transform, (With<RightPaddle>, Without<Ball>)>,
     )>,
-    ball: Single<(&mut Transform, &mut Velocity), With<Ballobj>>,
+    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
 ) {
     let mut direction = 0.0;
     if keys.pressed(KeyCode::ArrowUp) { direction += 1.0; }
