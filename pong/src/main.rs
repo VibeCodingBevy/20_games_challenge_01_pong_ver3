@@ -97,7 +97,7 @@ fn game_logic(
         Query<&mut Transform, (With<LeftPaddle>, Without<Ballobj>)>,
         Query<&mut Transform, (With<RightPaddle>, Without<Ballobj>)>,
     )>,
-    mut ball_q: Query<(&mut Transform, &mut Velocity), With<Ballobj>>,
+    ball: Single<(&mut Transform, &mut Velocity), With<Ballobj>>,
 ) {
     let mut direction = 0.0;
     if keys.pressed(KeyCode::ArrowUp) { direction += 1.0; }
@@ -139,8 +139,7 @@ fn game_logic(
         (lp_pos, rp_pos)
     };
 
-    let ball_result = ball_q.single_mut();
-    let Ok((mut bt, mut velocity)) = ball_result else { return; };
+    let (mut bt, mut velocity) = ball.into_inner();
 
     let speed = config.ball.speed;
     let r = config.ball.diameter / 2.0;
