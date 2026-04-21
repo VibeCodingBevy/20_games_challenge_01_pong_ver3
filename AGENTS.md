@@ -12,6 +12,8 @@ You can suggest a commit message at the end of your work.
 
 You can run `cargo build`, `cargo test`, `cargo check`.
 
+Make sure `cargo build` is not showing any warnings. Fix every one that appears!
+
 You cannot run `cargo run`. At the end of work write me what the `cargo run` should look like if I wanted to run it myself.
 
 # Targets
