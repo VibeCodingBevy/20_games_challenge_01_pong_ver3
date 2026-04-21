@@ -93,8 +93,10 @@ fn game_logic(
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mut score: ResMut<Score>,
-    mut left_paddle_q: Query<&mut Transform, (With<LeftPaddle>, Without<Ballobj>, Without<RightPaddle>)>,
-    mut right_paddle_q: Query<&mut Transform, (With<RightPaddle>, Without<Ballobj>, Without<LeftPaddle>)>,
+    mut paddles: ParamSet<(
+        Query<&mut Transform, (With<LeftPaddle>, Without<Ballobj>)>,
+        Query<&mut Transform, (With<RightPaddle>, Without<Ballobj>)>,
+    )>,
     mut ball_q: Query<(&mut Transform, &mut Velocity), With<Ballobj>>,
 ) {
     let mut direction = 0.0;
@@ -111,19 +113,29 @@ fn game_logic(
 
         let mut lp_pos = None;
         let mut rp_pos = None;
-        for t in left_paddle_q.iter() { lp_pos = Some(t.translation); }
-        for t in right_paddle_q.iter() { rp_pos = Some(t.translation); }
 
-        if direction != 0.0 {
-            for mut t in left_paddle_q.iter_mut() {
-                t.translation.y += direction * config.paddle.speed * time.delta_secs();
-                t.translation.y = t.translation.y.clamp(min_y, max_y);
-            }
-            for mut t in right_paddle_q.iter_mut() {
-                t.translation.y += direction * config.paddle.speed * time.delta_secs();
-                t.translation.y = t.translation.y.clamp(min_y, max_y);
+        {
+            let mut left_q = paddles.p0();
+            for t in left_q.iter() { lp_pos = Some(t.translation); }
+            if direction != 0.0 {
+                for mut t in left_q.iter_mut() {
+                    t.translation.y += direction * config.paddle.speed * time.delta_secs();
+                    t.translation.y = t.translation.y.clamp(min_y, max_y);
+                }
             }
         }
+
+        {
+            let mut right_q = paddles.p1();
+            for t in right_q.iter() { rp_pos = Some(t.translation); }
+            if direction != 0.0 {
+                for mut t in right_q.iter_mut() {
+                    t.translation.y += direction * config.paddle.speed * time.delta_secs();
+                    t.translation.y = t.translation.y.clamp(min_y, max_y);
+                }
+            }
+        }
+
         (lp_pos, rp_pos)
     };
 
