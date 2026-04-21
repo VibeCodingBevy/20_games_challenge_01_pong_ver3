@@ -46,7 +46,7 @@ impl Plugin for PongPlugin {
             .add_systems(OnExit(GameState::InGame), despawn_game_objects)
             .add_systems(OnEnter(GameState::GameOver), show_game_over)
             .add_systems(OnExit(GameState::GameOver), hide_game_over)
-            .add_systems(Update, game_logic.run_if(in_state(GameState::InGame)))
+            .add_systems(FixedUpdate, game_logic.run_if(in_state(GameState::InGame)))
             .add_systems(Update, menu_input.run_if(in_state(GameState::Menu)))
             .add_systems(Update, game_over_input.run_if(in_state(GameState::GameOver)));
     }
