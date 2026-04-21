@@ -65,3 +65,19 @@ The default center of the screen is (0, 0).
 
 UI Nodes: Bevy UI is part of the ECS. Use RelativeCursorPosition to easily track if a mouse is over a specific UI element without manually calculating window offsets.
 
+## 7. Text & UI in Bevy 0.18
+Use `Text::new()` for simple world-space text (not TextBundle, not Text2dBundle).
+Requires `ui` feature in Cargo.toml: `bevy = { version = "0.18", features = ["2d", "ui", "default_font"] }`.
+Text renders at z=1.0 or higher to be visible above sprites.
+
+## 8. Component Naming
+Use clear, concise names: `Ball` instead of `Ballobj`.
+For config structs that share names with components, use suffix: `Ball` (component) and `BallConfig` (config).
+Use Marker suffix when ambiguous: `struct PlayerMarker;` instead of generic `struct Player;`.
+
+## 9. Query Conflicts & Filters
+For mutable queries that could overlap, use `Without<T>` filters to make queries disjoint.
+Example: `Query<&mut Transform, (With<Paddle>, Without<Ball>)>` prevents overlap with Ball.
+Use ParamSet when you need multiple mutable queries in the same system.
+Always verify all entities are queried in despawn functions - easy to miss secondary entities.
+
