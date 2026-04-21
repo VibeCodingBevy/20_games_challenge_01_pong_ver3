@@ -28,13 +28,13 @@ struct Arena { wall_thickness: f32 }
 
 fn main() {
     let config_str = fs::read_to_string("config.toml").unwrap();
-    let config: Config = toml::from_str(&config_str).unwrap();
+    let configuration: Config = toml::from_str(&config_str).unwrap();
 
-    let screen_width = config.screen.width;
-    let screen_height = config.screen.height;
+    let screen_width = configuration.screen.width;
+    let screen_height = configuration.screen.height;
 
     App::new()
-        .insert_resource(config)
+        .insert_resource(configuration)
         .insert_resource(Score { left: 0, right: 0 })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -49,16 +49,16 @@ fn main() {
         .run();
 }
 
-fn setup(mut cmds: Commands, cfg: Res<Config>) {
+fn setup(mut cmds: Commands, config: Res<Config>) {
     cmds.spawn(Camera2d);
-    let wt = cfg.arena.wall_thickness;
-    let sw = cfg.screen.width as f32;
-    let sh = cfg.screen.height as f32;
+    let wt = config.arena.wall_thickness;
+    let sw = config.screen.width as f32;
+    let sh = config.screen.height as f32;
     let half_w = sw / 2.0;
     let half_h = sh / 2.0;
     let py = 0.0;
-    let lx = -half_w + cfg.paddle.margin + cfg.paddle.width / 2.0;
-    let rx = half_w - cfg.paddle.margin - cfg.paddle.width / 2.0;
+    let lx = -half_w + config.paddle.margin + config.paddle.width / 2.0;
+    let rx = half_w - config.paddle.margin - config.paddle.width / 2.0;
 
     // Top/bottom walls
     let mut tw = cmds.spawn_empty();
@@ -71,25 +71,25 @@ fn setup(mut cmds: Commands, cfg: Res<Config>) {
 
     // Paddles
     let mut lp = cmds.spawn_empty();
-    lp.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(cfg.paddle.width, cfg.paddle.height)));
+    lp.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.paddle.width, config.paddle.height)));
     lp.insert(Transform::from_xyz(lx, py, 0.0));
     lp.insert(LeftPaddle);
 
     let mut rp = cmds.spawn_empty();
-    rp.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(cfg.paddle.width, cfg.paddle.height)));
+    rp.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.paddle.width, config.paddle.height)));
     rp.insert(Transform::from_xyz(rx, py, 0.0));
     rp.insert(RightPaddle);
 
     // Ball
     let mut b = cmds.spawn_empty();
-    b.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(cfg.ball.diameter, cfg.ball.diameter)));
+    b.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.ball.diameter, config.ball.diameter)));
     b.insert(Transform::from_xyz(0.0, 0.0, 0.0));
     b.insert(Ballobj);
-    b.insert(Velocity(Vec2::new(cfg.ball.speed, cfg.ball.speed)));
+    b.insert(Velocity(Vec2::new(config.ball.speed, config.ball.speed)));
 }
 
 fn game_logic(
-    cfg: Res<Config>,
+    config: Res<Config>,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
     mut score: ResMut<Score>,
@@ -97,30 +97,30 @@ fn game_logic(
     mut right_paddle_q: Query<&mut Transform, (With<RightPaddle>, Without<Ballobj>, Without<LeftPaddle>)>,
     mut ball_q: Query<(&mut Transform, &mut Velocity), With<Ballobj>>,
 ) {
-    let mut dir = 0.0;
-    if keys.pressed(KeyCode::ArrowUp) { dir += 1.0; }
-    if keys.pressed(KeyCode::ArrowDown) { dir -= 1.0; }
+    let mut direction = 0.0;
+    if keys.pressed(KeyCode::ArrowUp) { direction += 1.0; }
+    if keys.pressed(KeyCode::ArrowDown) { direction -= 1.0; }
 
-    let half_w = cfg.screen.width as f32 / 2.0;
-    let half_h = cfg.screen.height as f32 / 2.0;
+    let half_w = config.screen.width as f32 / 2.0;
+    let half_h = config.screen.height as f32 / 2.0;
 
     let (lp_pos, rp_pos) = {
-        let wt = cfg.arena.wall_thickness;
-        let min_y = -half_h + wt + cfg.paddle.height / 2.0;
-        let max_y = half_h - wt - cfg.paddle.height / 2.0;
+        let wt = config.arena.wall_thickness;
+        let min_y = -half_h + wt + config.paddle.height / 2.0;
+        let max_y = half_h - wt - config.paddle.height / 2.0;
 
         let mut lp_pos = None;
         let mut rp_pos = None;
         for t in left_paddle_q.iter() { lp_pos = Some(t.translation); }
         for t in right_paddle_q.iter() { rp_pos = Some(t.translation); }
 
-        if dir != 0.0 {
+        if direction != 0.0 {
             for mut t in left_paddle_q.iter_mut() {
-                t.translation.y += dir * cfg.paddle.speed * time.delta_secs();
+                t.translation.y += direction * config.paddle.speed * time.delta_secs();
                 t.translation.y = t.translation.y.clamp(min_y, max_y);
             }
             for mut t in right_paddle_q.iter_mut() {
-                t.translation.y += dir * cfg.paddle.speed * time.delta_secs();
+                t.translation.y += direction * config.paddle.speed * time.delta_secs();
                 t.translation.y = t.translation.y.clamp(min_y, max_y);
             }
         }
@@ -128,24 +128,24 @@ fn game_logic(
     };
 
     let ball_result = ball_q.single_mut();
-    let Ok((mut bt, mut vel)) = ball_result else { return; };
+    let Ok((mut bt, mut velocity)) = ball_result else { return; };
 
-    let speed = cfg.ball.speed;
-    let r = cfg.ball.diameter / 2.0;
-    let wt = cfg.arena.wall_thickness;
-    let pw = cfg.paddle.width;
-    let ph = cfg.paddle.height;
+    let speed = config.ball.speed;
+    let r = config.ball.diameter / 2.0;
+    let wt = config.arena.wall_thickness;
+    let pw = config.paddle.width;
+    let ph = config.paddle.height;
 
-    bt.translation += vel.0.extend(0.0) * time.delta_secs();
-    if bt.translation.y - r <= -half_h + wt { bt.translation.y = -half_h + wt + r; vel.0.y = speed; }
-    else if bt.translation.y + r >= half_h - wt { bt.translation.y = half_h - wt - r; vel.0.y = -speed; }
+    bt.translation += velocity.0.extend(0.0) * time.delta_secs();
+    if bt.translation.y - r <= -half_h + wt { bt.translation.y = -half_h + wt + r; velocity.0.y = speed; }
+    else if bt.translation.y + r >= half_h - wt { bt.translation.y = half_h - wt - r; velocity.0.y = -speed; }
 
     if let Some(lp) = lp_pos {
         let lx = lp.x + pw;
         if bt.translation.x - r <= lx && bt.translation.x >= lx - pw && bt.translation.y >= lp.y - ph/2.0 && bt.translation.y <= lp.y + ph/2.0 {
             let ho = (bt.translation.y - lp.y) / (ph / 2.0);
             let a = ho.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
-            vel.0 = Vec2::new(speed * a.cos(), speed * a.sin());
+            velocity.0 = Vec2::new(speed * a.cos(), speed * a.sin());
             bt.translation.x = lx + r;
         }
     }
@@ -155,7 +155,7 @@ fn game_logic(
         if bt.translation.x + r >= rx && bt.translation.x <= rx + pw && bt.translation.y >= rp.y - ph/2.0 && bt.translation.y <= rp.y + ph/2.0 {
             let ho = (bt.translation.y - rp.y) / (ph / 2.0);
             let a = ho.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
-            vel.0 = Vec2::new(-speed * a.cos(), speed * a.sin());
+            velocity.0 = Vec2::new(-speed * a.cos(), speed * a.sin());
             bt.translation.x = rx - r;
         }
     }
@@ -167,6 +167,6 @@ fn game_logic(
     if scored {
         bt.translation.x = 0.0;
         bt.translation.y = 0.0;
-        vel.0 = Vec2::new(speed, speed);
+        velocity.0 = Vec2::new(speed, speed);
     }
 }
