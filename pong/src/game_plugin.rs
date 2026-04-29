@@ -79,81 +79,141 @@ fn game_logic(
     )>,
     ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
 ) {
+    let (lp_pos, rp_pos) = move_paddles(&config, &keys, &time, &mut paddles);
+    let (mut bt, mut velocity) = ball.into_inner();
+
+    move_ball(&config, &time, &mut *bt, &mut *velocity);
+    handle_wall_collisions(&config, &mut *bt, &mut *velocity);
+    handle_paddle_collisions(&config, &mut *bt, &mut *velocity, lp_pos, rp_pos);
+    handle_scoring(&config, &mut score, &mut next_state, &mut *bt, &mut *velocity);
+}
+
+fn move_paddles(
+    config: &Config,
+    keys: &ButtonInput<KeyCode>,
+    time: &Time,
+    paddles: &mut ParamSet<(
+        Query<&mut Transform, (With<LeftPaddle>, Without<Ball>)>,
+        Query<&mut Transform, (With<RightPaddle>, Without<Ball>)>,
+    )>,
+) -> (Option<Vec3>, Option<Vec3>) {
     let mut direction = 0.0;
     if keys.pressed(KeyCode::ArrowUp) { direction += 1.0; }
     if keys.pressed(KeyCode::ArrowDown) { direction -= 1.0; }
 
-    let half_w = config.screen.width as f32 / 2.0;
     let half_h = config.screen.height as f32 / 2.0;
+    let wt = config.arena.wall_thickness;
+    let min_y = -half_h + wt + config.paddle.height / 2.0;
+    let max_y = half_h - wt - config.paddle.height / 2.0;
 
-    let (lp_pos, rp_pos) = {
-        let wt = config.arena.wall_thickness;
-        let min_y = -half_h + wt + config.paddle.height / 2.0;
-        let max_y = half_h - wt - config.paddle.height / 2.0;
+    let mut lp_pos = None;
+    let mut rp_pos = None;
 
-        let mut lp_pos = None;
-        let mut rp_pos = None;
-
-        {
-            let mut left_q = paddles.p0();
-            for t in left_q.iter() { lp_pos = Some(t.translation); }
-            if direction != 0.0 {
-                for mut t in left_q.iter_mut() {
-                    t.translation.y += direction * config.paddle.speed * time.delta_secs();
-                    t.translation.y = t.translation.y.clamp(min_y, max_y);
-                }
+    {
+        let mut left_q = paddles.p0();
+        for t in left_q.iter() { lp_pos = Some(t.translation); }
+        if direction != 0.0 {
+            for mut t in left_q.iter_mut() {
+                t.translation.y += direction * config.paddle.speed * time.delta_secs();
+                t.translation.y = t.translation.y.clamp(min_y, max_y);
             }
         }
+    }
 
-        {
-            let mut right_q = paddles.p1();
-            for t in right_q.iter() { rp_pos = Some(t.translation); }
-            if direction != 0.0 {
-                for mut t in right_q.iter_mut() {
-                    t.translation.y += direction * config.paddle.speed * time.delta_secs();
-                    t.translation.y = t.translation.y.clamp(min_y, max_y);
-                }
+    {
+        let mut right_q = paddles.p1();
+        for t in right_q.iter() { rp_pos = Some(t.translation); }
+        if direction != 0.0 {
+            for mut t in right_q.iter_mut() {
+                t.translation.y += direction * config.paddle.speed * time.delta_secs();
+                t.translation.y = t.translation.y.clamp(min_y, max_y);
             }
         }
+    }
 
-        (lp_pos, rp_pos)
-    };
+    (lp_pos, rp_pos)
+}
 
-    let (mut bt, mut velocity) = ball.into_inner();
+fn move_ball(
+    _config: &Config,
+    time: &Time,
+    bt: &mut Transform,
+    velocity: &mut Velocity,
+) {
+    bt.translation += velocity.0.extend(0.0) * time.delta_secs();
+}
 
-    let speed = config.ball.speed;
+fn handle_wall_collisions(
+    config: &Config,
+    bt: &mut Transform,
+    velocity: &mut Velocity,
+) {
+    let half_h = config.screen.height as f32 / 2.0;
     let r = config.ball.diameter / 2.0;
     let wt = config.arena.wall_thickness;
+
+    if bt.translation.y - r <= -half_h + wt {
+        bt.translation.y = -half_h + wt + r;
+        velocity.0.y = config.ball.speed;
+    } else if bt.translation.y + r >= half_h - wt {
+        bt.translation.y = half_h - wt - r;
+        velocity.0.y = -config.ball.speed;
+    }
+}
+
+fn handle_paddle_collisions(
+    config: &Config,
+    bt: &mut Transform,
+    velocity: &mut Velocity,
+    lp_pos: Option<Vec3>,
+    rp_pos: Option<Vec3>,
+) {
+    let r = config.ball.diameter / 2.0;
     let pw = config.paddle.width;
     let ph = config.paddle.height;
-
-    bt.translation += velocity.0.extend(0.0) * time.delta_secs();
-    if bt.translation.y - r <= -half_h + wt { bt.translation.y = -half_h + wt + r; velocity.0.y = speed; }
-    else if bt.translation.y + r >= half_h - wt { bt.translation.y = half_h - wt - r; velocity.0.y = -speed; }
+    let speed = config.ball.speed;
 
     if let Some(lp) = lp_pos {
         let lx = lp.x + pw;
-        if bt.translation.x - r <= lx && bt.translation.x >= lx - pw && bt.translation.y >= lp.y - ph/2.0 && bt.translation.y <= lp.y + ph/2.0 {
-            let ho = (bt.translation.y - lp.y) / (ph / 2.0);
-            let a = ho.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
-            velocity.0 = Vec2::new(speed * a.cos(), speed * a.sin());
+        if bt.translation.x - r <= lx && bt.translation.x >= lx - pw
+            && bt.translation.y >= lp.y - ph / 2.0 && bt.translation.y <= lp.y + ph / 2.0 {
+            let offset = (bt.translation.y - lp.y) / (ph / 2.0);
+            let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
+            velocity.0 = Vec2::new(speed * angle.cos(), speed * angle.sin());
             bt.translation.x = lx + r;
         }
     }
 
     if let Some(rp) = rp_pos {
         let rx = rp.x - pw;
-        if bt.translation.x + r >= rx && bt.translation.x <= rx + pw && bt.translation.y >= rp.y - ph/2.0 && bt.translation.y <= rp.y + ph/2.0 {
-            let ho = (bt.translation.y - rp.y) / (ph / 2.0);
-            let a = ho.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
-            velocity.0 = Vec2::new(-speed * a.cos(), speed * a.sin());
+        if bt.translation.x + r >= rx && bt.translation.x <= rx + pw
+            && bt.translation.y >= rp.y - ph / 2.0 && bt.translation.y <= rp.y + ph / 2.0 {
+            let offset = (bt.translation.y - rp.y) / (ph / 2.0);
+            let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
+            velocity.0 = Vec2::new(-speed * angle.cos(), speed * angle.sin());
             bt.translation.x = rx - r;
         }
     }
+}
+
+fn handle_scoring(
+    config: &Config,
+    score: &mut ResMut<Score>,
+    next_state: &mut ResMut<NextState<GameState>>,
+    bt: &mut Transform,
+    velocity: &mut Velocity,
+) {
+    let half_w = config.screen.width as f32 / 2.0;
+    let speed = config.ball.speed;
 
     let mut scored = false;
-    if bt.translation.x < -half_w { score.right += 1; scored = true; }
-    else if bt.translation.x > half_w { score.left += 1; scored = true; }
+    if bt.translation.x < -half_w {
+        score.right += 1;
+        scored = true;
+    } else if bt.translation.x > half_w {
+        score.left += 1;
+        scored = true;
+    }
 
     if scored {
         bt.translation.x = 0.0;
