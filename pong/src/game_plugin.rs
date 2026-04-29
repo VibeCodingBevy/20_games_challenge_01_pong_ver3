@@ -3,13 +3,29 @@ use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score,
 
 const WINNING_SCORE: u32 = 10;
 
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+struct GameLogicSet;
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::InGame), (spawn_game_objects, reset_score))
             .add_systems(OnExit(GameState::InGame), despawn_game_objects)
-            .add_systems(FixedUpdate, game_logic.run_if(in_state(GameState::InGame)));
+            .configure_sets(FixedUpdate, GameLogicSet)
+            .add_systems(
+                FixedUpdate,
+                (
+                    move_paddles_system,
+                    move_ball_system,
+                    handle_wall_collisions_system,
+                    handle_paddle_collisions_system,
+                    handle_scoring_system,
+                )
+                .chain()
+                .in_set(GameLogicSet)
+                .run_if(in_state(GameState::InGame)),
+            );
     }
 }
 
@@ -67,142 +83,118 @@ fn despawn_game_objects(
     }
 }
 
-fn game_logic(
+fn move_paddles_system(
     config: Res<Config>,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut score: ResMut<Score>,
-    mut next_state: ResMut<NextState<GameState>>,
     mut paddles: ParamSet<(
         Query<&mut Transform, (With<LeftPaddle>, Without<Ball>)>,
         Query<&mut Transform, (With<RightPaddle>, Without<Ball>)>,
     )>,
-    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
 ) {
-    let (lp_pos, rp_pos) = move_paddles(&config, &keys, &time, &mut paddles);
-    let (mut bt, mut velocity) = ball.into_inner();
-
-    move_ball(&config, &time, &mut *bt, &mut *velocity);
-    handle_wall_collisions(&config, &mut *bt, &mut *velocity);
-    handle_paddle_collisions(&config, &mut *bt, &mut *velocity, lp_pos, rp_pos);
-    handle_scoring(&config, &mut score, &mut next_state, &mut *bt, &mut *velocity);
-}
-
-fn move_paddles(
-    config: &Config,
-    keys: &ButtonInput<KeyCode>,
-    time: &Time,
-    paddles: &mut ParamSet<(
-        Query<&mut Transform, (With<LeftPaddle>, Without<Ball>)>,
-        Query<&mut Transform, (With<RightPaddle>, Without<Ball>)>,
-    )>,
-) -> (Option<Vec3>, Option<Vec3>) {
     let mut direction = 0.0;
     if keys.pressed(KeyCode::ArrowUp) { direction += 1.0; }
     if keys.pressed(KeyCode::ArrowDown) { direction -= 1.0; }
+
+    if direction == 0.0 {
+        return;
+    }
 
     let half_h = config.screen.height as f32 / 2.0;
     let wt = config.arena.wall_thickness;
     let min_y = -half_h + wt + config.paddle.height / 2.0;
     let max_y = half_h - wt - config.paddle.height / 2.0;
 
-    let mut lp_pos = None;
-    let mut rp_pos = None;
-
-    {
-        let mut left_q = paddles.p0();
-        for t in left_q.iter() { lp_pos = Some(t.translation); }
-        if direction != 0.0 {
-            for mut t in left_q.iter_mut() {
-                t.translation.y += direction * config.paddle.speed * time.delta_secs();
-                t.translation.y = t.translation.y.clamp(min_y, max_y);
-            }
-        }
+    let mut left_q = paddles.p0();
+    for mut t in left_q.iter_mut() {
+        t.translation.y += direction * config.paddle.speed * time.delta_secs();
+        t.translation.y = t.translation.y.clamp(min_y, max_y);
     }
 
-    {
-        let mut right_q = paddles.p1();
-        for t in right_q.iter() { rp_pos = Some(t.translation); }
-        if direction != 0.0 {
-            for mut t in right_q.iter_mut() {
-                t.translation.y += direction * config.paddle.speed * time.delta_secs();
-                t.translation.y = t.translation.y.clamp(min_y, max_y);
-            }
-        }
+    let mut right_q = paddles.p1();
+    for mut t in right_q.iter_mut() {
+        t.translation.y += direction * config.paddle.speed * time.delta_secs();
+        t.translation.y = t.translation.y.clamp(min_y, max_y);
     }
-
-    (lp_pos, rp_pos)
 }
 
-fn move_ball(
-    _config: &Config,
-    time: &Time,
-    bt: &mut Transform,
-    velocity: &mut Velocity,
+fn move_ball_system(
+    time: Res<Time>,
+    ball: Single<(&mut Transform, &Velocity), With<Ball>>,
 ) {
+    let (mut bt, velocity) = ball.into_inner();
     bt.translation += velocity.0.extend(0.0) * time.delta_secs();
 }
 
-fn handle_wall_collisions(
-    config: &Config,
-    bt: &mut Transform,
-    velocity: &mut Velocity,
+fn handle_wall_collisions_system(
+    config: Res<Config>,
+    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
 ) {
+    let (mut bt, mut velocity) = ball.into_inner();
     let half_h = config.screen.height as f32 / 2.0;
     let r = config.ball.diameter / 2.0;
     let wt = config.arena.wall_thickness;
+    let speed = config.ball.speed;
 
     if bt.translation.y - r <= -half_h + wt {
         bt.translation.y = -half_h + wt + r;
-        velocity.0.y = config.ball.speed;
+        velocity.0.y = speed;
     } else if bt.translation.y + r >= half_h - wt {
         bt.translation.y = half_h - wt - r;
-        velocity.0.y = -config.ball.speed;
+        velocity.0.y = -speed;
     }
 }
 
-fn handle_paddle_collisions(
-    config: &Config,
-    bt: &mut Transform,
-    velocity: &mut Velocity,
-    lp_pos: Option<Vec3>,
-    rp_pos: Option<Vec3>,
+fn handle_paddle_collisions_system(
+    config: Res<Config>,
+    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
+    left_paddles: Query<&Transform, (With<LeftPaddle>, Without<Ball>)>,
+    right_paddles: Query<&Transform, (With<RightPaddle>, Without<Ball>)>,
 ) {
+    let (mut bt, mut velocity) = ball.into_inner();
     let r = config.ball.diameter / 2.0;
     let pw = config.paddle.width;
     let ph = config.paddle.height;
     let speed = config.ball.speed;
 
-    if let Some(lp) = lp_pos {
-        let lx = lp.x + pw;
-        if bt.translation.x - r <= lx && bt.translation.x >= lx - pw
-            && bt.translation.y >= lp.y - ph / 2.0 && bt.translation.y <= lp.y + ph / 2.0 {
-            let offset = (bt.translation.y - lp.y) / (ph / 2.0);
+    for lp in left_paddles.iter() {
+        let paddle_right = lp.translation.x + pw / 2.0;
+        let paddle_left = lp.translation.x - pw / 2.0;
+
+        if bt.translation.x - r <= paddle_right && bt.translation.x + r >= paddle_left
+            && bt.translation.y >= lp.translation.y - ph / 2.0
+            && bt.translation.y <= lp.translation.y + ph / 2.0 {
+            let offset = (bt.translation.y - lp.translation.y) / (ph / 2.0);
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(speed * angle.cos(), speed * angle.sin());
-            bt.translation.x = lx + r;
+            bt.translation.x = paddle_right + r;
+            break;
         }
     }
 
-    if let Some(rp) = rp_pos {
-        let rx = rp.x - pw;
-        if bt.translation.x + r >= rx && bt.translation.x <= rx + pw
-            && bt.translation.y >= rp.y - ph / 2.0 && bt.translation.y <= rp.y + ph / 2.0 {
-            let offset = (bt.translation.y - rp.y) / (ph / 2.0);
+    for rp in right_paddles.iter() {
+        let paddle_right = rp.translation.x + pw / 2.0;
+        let paddle_left = rp.translation.x - pw / 2.0;
+
+        if bt.translation.x + r >= paddle_left && bt.translation.x - r <= paddle_right
+            && bt.translation.y >= rp.translation.y - ph / 2.0
+            && bt.translation.y <= rp.translation.y + ph / 2.0 {
+            let offset = (bt.translation.y - rp.translation.y) / (ph / 2.0);
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(-speed * angle.cos(), speed * angle.sin());
-            bt.translation.x = rx - r;
+            bt.translation.x = paddle_left - r;
+            break;
         }
     }
 }
 
-fn handle_scoring(
-    config: &Config,
-    score: &mut ResMut<Score>,
-    next_state: &mut ResMut<NextState<GameState>>,
-    bt: &mut Transform,
-    velocity: &mut Velocity,
+fn handle_scoring_system(
+    config: Res<Config>,
+    mut score: ResMut<Score>,
+    mut next_state: ResMut<NextState<GameState>>,
+    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
 ) {
+    let (mut bt, mut velocity) = ball.into_inner();
     let half_w = config.screen.width as f32 / 2.0;
     let speed = config.ball.speed;
 
