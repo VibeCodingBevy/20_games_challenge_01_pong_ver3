@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall};
+use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider};
 
 const WINNING_SCORE: u32 = 10;
 
@@ -69,6 +69,12 @@ fn spawn_game_objects(mut cmds: Commands, config: Res<Config>) {
     b.insert(Transform::from_xyz(0.0, 0.0, 0.0));
     b.insert(Ball);
     b.insert(Velocity(Vec2::new(config.ball.speed, config.ball.speed)));
+
+    cmds.spawn((
+        Sprite::from_color(Color::srgb(0.7, 0.7, 0.7), Vec2::new(config.arena.divider_width, sh)),
+        Transform::from_xyz(0.0, 0.0, -1.0),
+        Divider,
+    ));
 }
 
 fn despawn_game_objects(
@@ -77,8 +83,13 @@ fn despawn_game_objects(
     right_paddles: Query<Entity, With<RightPaddle>>,
     balls: Query<Entity, With<Ball>>,
     walls: Query<Entity, With<Wall>>,
+    dividers: Query<Entity, With<Divider>>,
 ) {
-    for entity in left_paddles.iter().chain(right_paddles.iter()).chain(balls.iter()).chain(walls.iter()) {
+    for entity in left_paddles.iter()
+        .chain(right_paddles.iter())
+        .chain(balls.iter())
+        .chain(walls.iter())
+        .chain(dividers.iter()) {
         commands.entity(entity).despawn();
     }
 }

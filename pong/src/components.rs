@@ -15,8 +15,7 @@ pub struct Screen { pub width: u32, pub height: u32 }
 pub struct BallConfig { pub diameter: f32, pub speed: f32 }
 #[derive(Deserialize)]
 pub struct Paddle { pub width: f32, pub height: f32, pub margin: f32, pub speed: f32 }
-#[derive(Deserialize)]
-pub struct Arena { pub wall_thickness: f32 }
+#[derive(Deserialize)] pub struct Arena { pub wall_thickness: f32, pub divider_width: f32 }
 
 #[derive(Component)] pub struct LeftPaddle;
 #[derive(Component)] pub struct RightPaddle;
@@ -27,6 +26,8 @@ pub struct Ball;
 #[derive(Component, Default)]
 pub struct Velocity(pub Vec2);
 #[derive(Component)] pub struct Wall;
+#[derive(Component)] pub struct Divider;
+
 
 #[derive(Resource)] pub struct Score { pub left: u32, pub right: u32 }
 
