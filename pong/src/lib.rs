@@ -19,6 +19,6 @@ impl Plugin for PongPlugin {
     }
 }
 
-fn setup(mut cmds: Commands) {
-    cmds.spawn(Camera2d);
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
 }

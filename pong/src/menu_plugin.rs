@@ -14,8 +14,8 @@ impl Plugin for MenuPlugin {
     }
 }
 
-fn show_menu(mut cmds: Commands) {
-    cmds.spawn((
+fn show_menu(mut commands: Commands) {
+    commands.spawn((
         Text::new("PONG\n\nPress Space to Start"),
         Transform::from_xyz(0.0, 0.0, 1.0),
     ))

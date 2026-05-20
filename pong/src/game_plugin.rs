@@ -34,44 +34,44 @@ fn reset_score(mut score: ResMut<Score>) {
     score.right = 0;
 }
 
-fn spawn_game_objects(mut cmds: Commands, config: Res<Config>) {
-    let wt = config.arena.wall_thickness;
-    let sw = config.screen.width as f32;
-    let sh = config.screen.height as f32;
-    let half_w = sw / 2.0;
-    let half_h = sh / 2.0;
-    let py = 0.0;
-    let lx = -half_w + config.paddle.margin + config.paddle.width / 2.0;
-    let rx = half_w - config.paddle.margin - config.paddle.width / 2.0;
+fn spawn_game_objects(mut commands: Commands, config: Res<Config>) {
+    let wall_thickness = config.arena.wall_thickness;
+    let screen_width = config.screen.width as f32;
+    let screen_height = config.screen.height as f32;
+    let half_width = screen_width / 2.0;
+    let half_height = screen_height / 2.0;
+    let paddle_y = 0.0;
+    let left_x = -half_width + config.paddle.margin + config.paddle.width / 2.0;
+    let right_x = half_width - config.paddle.margin - config.paddle.width / 2.0;
 
-    let mut tw = cmds.spawn_empty();
-    tw.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(sw, wt)));
-    tw.insert(Transform::from_xyz(0.0, half_h - wt / 2.0, 0.0));
-    tw.insert(Wall);
+    let mut top_wall = commands.spawn_empty();
+    top_wall.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(screen_width, wall_thickness)));
+    top_wall.insert(Transform::from_xyz(0.0, half_height - wall_thickness / 2.0, 0.0));
+    top_wall.insert(Wall);
 
-    let mut bw = cmds.spawn_empty();
-    bw.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(sw, wt)));
-    bw.insert(Transform::from_xyz(0.0, -half_h + wt / 2.0, 0.0));
-    bw.insert(Wall);
+    let mut bottom_wall = commands.spawn_empty();
+    bottom_wall.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(screen_width, wall_thickness)));
+    bottom_wall.insert(Transform::from_xyz(0.0, -half_height + wall_thickness / 2.0, 0.0));
+    bottom_wall.insert(Wall);
 
-    let mut lp = cmds.spawn_empty();
-    lp.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.paddle.width, config.paddle.height)));
-    lp.insert(Transform::from_xyz(lx, py, 0.0));
-    lp.insert(LeftPaddle);
+    let mut left_paddle = commands.spawn_empty();
+    left_paddle.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.paddle.width, config.paddle.height)));
+    left_paddle.insert(Transform::from_xyz(left_x, paddle_y, 0.0));
+    left_paddle.insert(LeftPaddle);
 
-    let mut rp = cmds.spawn_empty();
-    rp.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.paddle.width, config.paddle.height)));
-    rp.insert(Transform::from_xyz(rx, py, 0.0));
-    rp.insert(RightPaddle);
+    let mut right_paddle = commands.spawn_empty();
+    right_paddle.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.paddle.width, config.paddle.height)));
+    right_paddle.insert(Transform::from_xyz(right_x, paddle_y, 0.0));
+    right_paddle.insert(RightPaddle);
 
-    let mut b = cmds.spawn_empty();
-    b.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.ball.diameter, config.ball.diameter)));
-    b.insert(Transform::from_xyz(0.0, 0.0, 0.0));
-    b.insert(Ball);
-    b.insert(Velocity(Vec2::new(config.ball.speed, config.ball.speed)));
+    let mut ball = commands.spawn_empty();
+    ball.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.ball.diameter, config.ball.diameter)));
+    ball.insert(Transform::from_xyz(0.0, 0.0, 0.0));
+    ball.insert(Ball);
+    ball.insert(Velocity(Vec2::new(config.ball.speed, config.ball.speed)));
 
-    cmds.spawn((
-        Sprite::from_color(Color::srgb(0.7, 0.7, 0.7), Vec2::new(config.arena.divider_width, sh)),
+    commands.spawn((
+        Sprite::from_color(Color::srgb(0.7, 0.7, 0.7), Vec2::new(config.arena.divider_width, screen_height)),
         Transform::from_xyz(0.0, 0.0, -1.0),
         Divider,
     ));
@@ -111,21 +111,21 @@ fn move_paddles_system(
         return;
     }
 
-    let half_h = config.screen.height as f32 / 2.0;
-    let wt = config.arena.wall_thickness;
-    let min_y = -half_h + wt + config.paddle.height / 2.0;
-    let max_y = half_h - wt - config.paddle.height / 2.0;
+    let half_height = config.screen.height as f32 / 2.0;
+    let wall_thickness = config.arena.wall_thickness;
+    let min_y = -half_height + wall_thickness + config.paddle.height / 2.0;
+    let max_y = half_height - wall_thickness - config.paddle.height / 2.0;
 
-    let mut left_q = paddles.p0();
-    for mut t in left_q.iter_mut() {
-        t.translation.y += direction * config.paddle.speed * time.delta_secs();
-        t.translation.y = t.translation.y.clamp(min_y, max_y);
+    let mut left_query = paddles.p0();
+    for mut transform in left_query.iter_mut() {
+        transform.translation.y += direction * config.paddle.speed * time.delta_secs();
+        transform.translation.y = transform.translation.y.clamp(min_y, max_y);
     }
 
-    let mut right_q = paddles.p1();
-    for mut t in right_q.iter_mut() {
-        t.translation.y += direction * config.paddle.speed * time.delta_secs();
-        t.translation.y = t.translation.y.clamp(min_y, max_y);
+    let mut right_query = paddles.p1();
+    for mut transform in right_query.iter_mut() {
+        transform.translation.y += direction * config.paddle.speed * time.delta_secs();
+        transform.translation.y = transform.translation.y.clamp(min_y, max_y);
     }
 }
 
@@ -133,25 +133,25 @@ fn move_ball_system(
     time: Res<Time>,
     ball: Single<(&mut Transform, &Velocity), With<Ball>>,
 ) {
-    let (mut bt, velocity) = ball.into_inner();
-    bt.translation += velocity.0.extend(0.0) * time.delta_secs();
+    let (mut ball_transform, velocity) = ball.into_inner();
+    ball_transform.translation += velocity.0.extend(0.0) * time.delta_secs();
 }
 
 fn handle_wall_collisions_system(
     config: Res<Config>,
     ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
 ) {
-    let (mut bt, mut velocity) = ball.into_inner();
-    let half_h = config.screen.height as f32 / 2.0;
-    let r = config.ball.diameter / 2.0;
-    let wt = config.arena.wall_thickness;
+    let (mut ball_transform, mut velocity) = ball.into_inner();
+    let half_height = config.screen.height as f32 / 2.0;
+    let radius = config.ball.diameter / 2.0;
+    let wall_thickness = config.arena.wall_thickness;
     let speed = config.ball.speed;
 
-    if bt.translation.y - r <= -half_h + wt {
-        bt.translation.y = -half_h + wt + r;
+    if ball_transform.translation.y - radius <= -half_height + wall_thickness {
+        ball_transform.translation.y = -half_height + wall_thickness + radius;
         velocity.0.y = speed;
-    } else if bt.translation.y + r >= half_h - wt {
-        bt.translation.y = half_h - wt - r;
+    } else if ball_transform.translation.y + radius >= half_height - wall_thickness {
+        ball_transform.translation.y = half_height - wall_thickness - radius;
         velocity.0.y = -speed;
     }
 }
@@ -162,38 +162,38 @@ fn handle_paddle_collisions_system(
     left_paddles: Query<&Transform, (With<LeftPaddle>, Without<Ball>)>,
     right_paddles: Query<&Transform, (With<RightPaddle>, Without<Ball>)>,
 ) {
-    let (mut bt, mut velocity) = ball.into_inner();
-    let r = config.ball.diameter / 2.0;
-    let pw = config.paddle.width;
-    let ph = config.paddle.height;
+    let (mut ball_transform, mut velocity) = ball.into_inner();
+    let radius = config.ball.diameter / 2.0;
+    let paddle_width = config.paddle.width;
+    let paddle_height = config.paddle.height;
     let speed = config.ball.speed;
 
-    for lp in left_paddles.iter() {
-        let paddle_right = lp.translation.x + pw / 2.0;
-        let paddle_left = lp.translation.x - pw / 2.0;
+    for left_paddle in left_paddles.iter() {
+        let paddle_right = left_paddle.translation.x + paddle_width / 2.0;
+        let paddle_left = left_paddle.translation.x - paddle_width / 2.0;
 
-        if bt.translation.x - r <= paddle_right && bt.translation.x + r >= paddle_left
-            && bt.translation.y >= lp.translation.y - ph / 2.0
-            && bt.translation.y <= lp.translation.y + ph / 2.0 {
-            let offset = (bt.translation.y - lp.translation.y) / (ph / 2.0);
+        if ball_transform.translation.x - radius <= paddle_right && ball_transform.translation.x + radius >= paddle_left
+            && ball_transform.translation.y >= left_paddle.translation.y - paddle_height / 2.0
+            && ball_transform.translation.y <= left_paddle.translation.y + paddle_height / 2.0 {
+            let offset = (ball_transform.translation.y - left_paddle.translation.y) / (paddle_height / 2.0);
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(speed * angle.cos(), speed * angle.sin());
-            bt.translation.x = paddle_right + r;
+            ball_transform.translation.x = paddle_right + radius;
             break;
         }
     }
 
-    for rp in right_paddles.iter() {
-        let paddle_right = rp.translation.x + pw / 2.0;
-        let paddle_left = rp.translation.x - pw / 2.0;
+    for right_paddle in right_paddles.iter() {
+        let paddle_right = right_paddle.translation.x + paddle_width / 2.0;
+        let paddle_left = right_paddle.translation.x - paddle_width / 2.0;
 
-        if bt.translation.x + r >= paddle_left && bt.translation.x - r <= paddle_right
-            && bt.translation.y >= rp.translation.y - ph / 2.0
-            && bt.translation.y <= rp.translation.y + ph / 2.0 {
-            let offset = (bt.translation.y - rp.translation.y) / (ph / 2.0);
+        if ball_transform.translation.x + radius >= paddle_left && ball_transform.translation.x - radius <= paddle_right
+            && ball_transform.translation.y >= right_paddle.translation.y - paddle_height / 2.0
+            && ball_transform.translation.y <= right_paddle.translation.y + paddle_height / 2.0 {
+            let offset = (ball_transform.translation.y - right_paddle.translation.y) / (paddle_height / 2.0);
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(-speed * angle.cos(), speed * angle.sin());
-            bt.translation.x = paddle_left - r;
+            ball_transform.translation.x = paddle_left - radius;
             break;
         }
     }
@@ -205,22 +205,22 @@ fn handle_scoring_system(
     mut next_state: ResMut<NextState<GameState>>,
     ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
 ) {
-    let (mut bt, mut velocity) = ball.into_inner();
-    let half_w = config.screen.width as f32 / 2.0;
+    let (mut ball_transform, mut velocity) = ball.into_inner();
+    let half_width = config.screen.width as f32 / 2.0;
     let speed = config.ball.speed;
 
     let mut scored = false;
-    if bt.translation.x < -half_w {
+    if ball_transform.translation.x < -half_width {
         score.right += 1;
         scored = true;
-    } else if bt.translation.x > half_w {
+    } else if ball_transform.translation.x > half_width {
         score.left += 1;
         scored = true;
     }
 
     if scored {
-        bt.translation.x = 0.0;
-        bt.translation.y = 0.0;
+        ball_transform.translation.x = 0.0;
+        ball_transform.translation.y = 0.0;
         velocity.0 = Vec2::new(speed, speed);
 
         if score.left >= WINNING_SCORE || score.right >= WINNING_SCORE {

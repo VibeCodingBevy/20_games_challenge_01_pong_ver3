@@ -14,9 +14,9 @@ impl Plugin for GameOverPlugin {
     }
 }
 
-fn show_game_over(mut cmds: Commands, score: Res<Score>) {
+fn show_game_over(mut commands: Commands, score: Res<Score>) {
     let winner = if score.left >= 10 { "Player 1" } else { "Player 2" };
-    cmds.spawn((
+    commands.spawn((
         Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Menu", winner)),
         Transform::from_xyz(0.0, 0.0, 1.0),
     ))
