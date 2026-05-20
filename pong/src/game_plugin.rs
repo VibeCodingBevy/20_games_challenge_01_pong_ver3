@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider};
+use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider, LeftScoreText, RightScoreText};
 
 const WINNING_SCORE: u32 = 10;
 
@@ -25,7 +25,8 @@ impl Plugin for GamePlugin {
                 .chain()
                 .in_set(GameLogicSet)
                 .run_if(in_state(GameState::InGame)),
-            );
+            )
+            .add_systems(Update, update_score_ui_system.run_if(in_state(GameState::InGame)));
     }
 }
 
@@ -75,6 +76,28 @@ fn spawn_game_objects(mut commands: Commands, config: Res<Config>) {
         Transform::from_xyz(0.0, 0.0, -1.0),
         Divider,
     ));
+
+    commands.spawn((
+        Text::new("0"),
+        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.6)),
+        TextFont {
+            font_size: 64.0,
+            ..default()
+        },
+        Transform::from_xyz(-150.0, 200.0, 1.0),
+        LeftScoreText,
+    ));
+
+    commands.spawn((
+        Text::new("0"),
+        TextColor(Color::srgba(1.0, 1.0, 1.0, 0.6)),
+        TextFont {
+            font_size: 64.0,
+            ..default()
+        },
+        Transform::from_xyz(150.0, 200.0, 1.0),
+        RightScoreText,
+    ));
 }
 
 fn despawn_game_objects(
@@ -84,12 +107,16 @@ fn despawn_game_objects(
     balls: Query<Entity, With<Ball>>,
     walls: Query<Entity, With<Wall>>,
     dividers: Query<Entity, With<Divider>>,
+    left_score_texts: Query<Entity, With<LeftScoreText>>,
+    right_score_texts: Query<Entity, With<RightScoreText>>,
 ) {
     for entity in left_paddles.iter()
         .chain(right_paddles.iter())
         .chain(balls.iter())
         .chain(walls.iter())
-        .chain(dividers.iter()) {
+        .chain(dividers.iter())
+        .chain(left_score_texts.iter())
+        .chain(right_score_texts.iter()) {
         commands.entity(entity).despawn();
     }
 }
@@ -226,5 +253,16 @@ fn handle_scoring_system(
         if score.left >= WINNING_SCORE || score.right >= WINNING_SCORE {
             next_state.set(GameState::GameOver);
         }
+    }
+}
+
+fn update_score_ui_system(
+    score: Res<Score>,
+    mut left_text: Single<&mut Text, (With<LeftScoreText>, Without<RightScoreText>)>,
+    mut right_text: Single<&mut Text, (With<RightScoreText>, Without<LeftScoreText>)>,
+) {
+    if score.is_changed() {
+        **left_text = Text::new(score.left.to_string());
+        **right_text = Text::new(score.right.to_string());
     }
 }

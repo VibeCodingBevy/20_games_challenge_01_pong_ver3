@@ -27,6 +27,8 @@ pub struct Ball;
 pub struct Velocity(pub Vec2);
 #[derive(Component)] pub struct Wall;
 #[derive(Component)] pub struct Divider;
+#[derive(Component)] pub struct LeftScoreText;
+#[derive(Component)] pub struct RightScoreText;
 
 
 #[derive(Resource)] pub struct Score { pub left: u32, pub right: u32 }
