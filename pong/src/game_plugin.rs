@@ -84,7 +84,12 @@ fn spawn_game_objects(mut commands: Commands, config: Res<Config>) {
             font_size: 64.0,
             ..default()
         },
-        Transform::from_xyz(-150.0, 200.0, 1.0),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(250.0),
+            top: Val::Px(20.0),
+            ..default()
+        },
         LeftScoreText,
     ));
 
@@ -95,7 +100,12 @@ fn spawn_game_objects(mut commands: Commands, config: Res<Config>) {
             font_size: 64.0,
             ..default()
         },
-        Transform::from_xyz(150.0, 200.0, 1.0),
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(250.0),
+            top: Val::Px(20.0),
+            ..default()
+        },
         RightScoreText,
     ));
 }
