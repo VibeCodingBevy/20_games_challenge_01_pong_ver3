@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::Rng;
 use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider, LeftScoreText, RightScoreText};
 
 const WINNING_SCORE: u32 = 10;
@@ -247,18 +248,27 @@ fn handle_scoring_system(
     let speed = config.ball.speed;
 
     let mut scored = false;
+    let mut scored_left = false;
     if ball_transform.translation.x < -half_width {
         score.right += 1;
         scored = true;
     } else if ball_transform.translation.x > half_width {
         score.left += 1;
+        scored_left = true;
         scored = true;
     }
 
     if scored {
         ball_transform.translation.x = 0.0;
         ball_transform.translation.y = 0.0;
-        velocity.0 = Vec2::new(speed, speed);
+
+        let mut rng = rand::rng();
+        let y_direction = if rng.random::<f32>() > 0.5 { speed } else { -speed };
+        velocity.0 = if scored_left {
+            Vec2::new(speed, y_direction)
+        } else {
+            Vec2::new(-speed, y_direction)
+        };
 
         if score.left >= WINNING_SCORE || score.right >= WINNING_SCORE {
             next_state.set(GameState::GameOver);

@@ -9,6 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 bevy = { version = "0.18", features = ["2d", "ui", "web", "default_font"] }
+rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
 
