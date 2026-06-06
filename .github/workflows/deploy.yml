@@ -1,0 +1,52 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
+
+      - name: Extract wasm-bindgen version from Cargo.lock
+        id: wasm-bindgen-version
+        run: |
+          version=$(grep -A1 '^name = "wasm-bindgen"' pong/Cargo.lock \
+            | grep version | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --version ${{ steps.wasm-bindgen-version.outputs.version }}
+
+      - name: Build WASM
+        run: cargo build --release --target wasm32-unknown-unknown
+        working-directory: pong
+
+      - name: Generate JS bindings
+        run: wasm-bindgen --out-dir out --target web target/wasm32-unknown-unknown/release/pong.wasm
+        working-directory: pong
+
+      - name: Copy index.html
+        run: cp web/index.html out/
+        working-directory: pong
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pong/out
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

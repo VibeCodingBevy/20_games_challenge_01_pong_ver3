@@ -1,10 +1,9 @@
 use bevy::prelude::*;
 use pong_lib::{Config, PongPlugin, Score};
-use std::fs;
 
 fn main() {
-    let config_str = fs::read_to_string("config.toml").unwrap();
-    let configuration: Config = toml::from_str(&config_str).unwrap();
+    let config_str = include_str!("../config.toml");
+    let configuration: Config = toml::from_str(config_str).unwrap();
 
     let screen_width = configuration.screen.width;
     let screen_height = configuration.screen.height;
