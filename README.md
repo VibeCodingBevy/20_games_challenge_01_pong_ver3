@@ -14,3 +14,6 @@ Don’t worry about making art just yet, you can find a lot of sprites online th
 3. Processing player input and moving objects on screen.
 4. Detecting and reacting to collisions.
 
+# Where to play it?
+
+It is playable here: [https://vibecodingbevy.github.io/20_games_challenge_01_pong_ver3](https://vibecodingbevy.github.io/20_games_challenge_01_pong_ver3).
