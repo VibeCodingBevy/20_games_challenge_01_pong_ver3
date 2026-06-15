@@ -7,6 +7,7 @@ pub struct Config {
     pub ball: BallConfig,
     pub paddle: Paddle,
     pub arena: Arena,
+    pub game: GameConfig,
 }
 
 #[derive(Deserialize)]
@@ -16,6 +17,7 @@ pub struct BallConfig { pub diameter: f32, pub speed: f32 }
 #[derive(Deserialize)]
 pub struct Paddle { pub width: f32, pub height: f32, pub margin: f32, pub speed: f32 }
 #[derive(Deserialize)] pub struct Arena { pub wall_thickness: f32, pub divider_width: f32 }
+#[derive(Deserialize)] pub struct GameConfig { pub winning_score: u32 }
 
 #[derive(Component)] pub struct LeftPaddle;
 #[derive(Component)] pub struct RightPaddle;

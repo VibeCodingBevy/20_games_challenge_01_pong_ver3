@@ -15,3 +15,6 @@ speed = 300
 [arena]
 wall_thickness = 10
 divider_width = 2
+
+[game]
+winning_score = 10

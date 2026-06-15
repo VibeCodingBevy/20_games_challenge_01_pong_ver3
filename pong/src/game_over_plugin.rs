@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::components::{GameState, Score};
+use crate::components::{Config, GameState, Score};
 
 #[derive(Component)]
 pub struct GameOverText;
@@ -14,8 +14,8 @@ impl Plugin for GameOverPlugin {
     }
 }
 
-fn show_game_over(mut commands: Commands, score: Res<Score>) {
-    let winner = if score.left >= 10 { "Player 1" } else { "Player 2" };
+fn show_game_over(mut commands: Commands, score: Res<Score>, config: Res<Config>) {
+    let winner = if score.left >= config.game.winning_score { "Player 1" } else { "Player 2" };
     commands.spawn((
         Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Menu", winner)),
         Transform::from_xyz(0.0, 0.0, 1.0),

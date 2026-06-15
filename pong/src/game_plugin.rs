@@ -2,8 +2,6 @@ use bevy::prelude::*;
 use rand::Rng;
 use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider, LeftScoreText, RightScoreText};
 
-const WINNING_SCORE: u32 = 10;
-
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct GameLogicSet;
 
@@ -270,7 +268,7 @@ fn handle_scoring_system(
             Vec2::new(-speed, y_direction)
         };
 
-        if score.left >= WINNING_SCORE || score.right >= WINNING_SCORE {
+        if score.left >= config.game.winning_score || score.right >= config.game.winning_score {
             next_state.set(GameState::GameOver);
         }
     }
