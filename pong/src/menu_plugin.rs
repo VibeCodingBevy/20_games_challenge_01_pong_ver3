@@ -17,9 +17,21 @@ impl Plugin for MenuPlugin {
 fn show_menu(mut commands: Commands) {
     commands.spawn((
         Text::new("PONG\n\nPress Space to Start"),
-        Transform::from_xyz(0.0, 0.0, 1.0),
-    ))
-    .insert(MenuText);
+        TextFont { font_size: 64.0, ..default() },
+        TextColor(Color::WHITE),
+        TextLayout::new(Justify::Center, LineBreak::NoWrap),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        MenuText,
+    ));
 }
 
 fn hide_menu(mut commands: Commands, menu_query: Query<Entity, With<MenuText>>) {

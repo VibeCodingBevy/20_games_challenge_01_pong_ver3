@@ -18,9 +18,21 @@ fn show_game_over(mut commands: Commands, score: Res<Score>, config: Res<Config>
     let winner = if score.left >= config.game.winning_score { "Player 1" } else { "Player 2" };
     commands.spawn((
         Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Menu", winner)),
-        Transform::from_xyz(0.0, 0.0, 1.0),
-    ))
-    .insert(GameOverText);
+        TextFont { font_size: 64.0, ..default() },
+        TextColor(Color::WHITE),
+        TextLayout::new(Justify::Center, LineBreak::NoWrap),
+        Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(0.0),
+            right: Val::Px(0.0),
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        GameOverText,
+    ));
 }
 
 fn hide_game_over(mut commands: Commands, query: Query<Entity, With<GameOverText>>) {
