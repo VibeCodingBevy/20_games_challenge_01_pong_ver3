@@ -17,8 +17,6 @@ impl Plugin for CreditsPlugin {
     }
 }
 
-const SCROLL_SPEED: f32 = 200.0;
-
 fn show_credits(mut commands: Commands, config: Res<Config>) {
     let start_top = config.screen.height as f32 + 50.0;
 
@@ -64,7 +62,7 @@ fn scroll_credits(
 ) {
     for mut node in query.iter_mut() {
         if let Val::Px(top) = &mut node.top {
-            *top -= SCROLL_SPEED * time.delta_secs();
+            *top -= config.game.credits_speed * time.delta_secs();
 
             if *top < -(config.game.font_size + 30.0) {
                 next_state.set(GameState::Menu);
