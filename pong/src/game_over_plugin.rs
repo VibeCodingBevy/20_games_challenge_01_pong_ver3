@@ -30,7 +30,7 @@ fn show_game_over(mut commands: Commands, score: Res<Score>, config: Res<Config>
         GameOverText,
     )).with_children(|parent| {
         parent.spawn((
-            Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Menu", winner)),
+            Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Credits", winner)),
             TextFont { font_size: config.game.font_size, ..default() },
             TextColor(Color::WHITE),
             TextLayout::new(Justify::Center, LineBreak::NoWrap),
@@ -56,6 +56,6 @@ fn game_over_input(
     } else if keys.just_pressed(KeyCode::Escape) {
         score.left = 0;
         score.right = 0;
-        next_state.set(GameState::Menu);
+        next_state.set(GameState::Credits);
     }
 }

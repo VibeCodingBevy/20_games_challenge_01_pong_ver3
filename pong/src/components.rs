@@ -41,4 +41,5 @@ pub enum GameState {
     Menu,
     InGame,
     GameOver,
+    Credits,
 }
