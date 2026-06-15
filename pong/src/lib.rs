@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub mod components;
+pub mod credits_config;
 pub mod credits_plugin;
 pub mod menu_plugin;
 pub mod game_over_plugin;

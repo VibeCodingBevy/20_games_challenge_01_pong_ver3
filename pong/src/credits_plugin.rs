@@ -1,11 +1,18 @@
 use bevy::prelude::*;
 use crate::components::{Config, GameState};
+use crate::credits_config::CreditsConfig;
+
+const HEADER_FONT_SCALE: f32 = 1.5;
+const SECTION_SPACING: f32 = 40.0;
+const LINE_HEIGHT_FACTOR: f32 = 1.3;
 
 #[derive(Component)]
 pub struct CreditsText;
 
 #[derive(Component)]
-pub struct ScrollTarget;
+pub struct ScrollTarget {
+    total_height: f32,
+}
 
 pub struct CreditsPlugin;
 
@@ -17,8 +24,22 @@ impl Plugin for CreditsPlugin {
     }
 }
 
-fn show_credits(mut commands: Commands, config: Res<Config>) {
+fn show_credits(
+    mut commands: Commands,
+    config: Res<Config>,
+    credits_config: Res<CreditsConfig>,
+) {
     let start_top = config.screen.height as f32 + 50.0;
+    let font_size = config.game.font_size;
+    let header_font_size = font_size * HEADER_FONT_SCALE;
+
+    let mut total_height: f32 = 0.0;
+    for section in &credits_config.sections {
+        total_height += header_font_size * LINE_HEIGHT_FACTOR;
+        let line_count = section.text.lines().count().max(1);
+        total_height += font_size * LINE_HEIGHT_FACTOR * line_count as f32;
+        total_height += SECTION_SPACING;
+    }
 
     commands.spawn((
         Node {
@@ -35,16 +56,35 @@ fn show_credits(mut commands: Commands, config: Res<Config>) {
         CreditsText,
     )).with_children(|parent| {
         parent.spawn((
-            Text::new("LOL"),
-            TextFont { font_size: config.game.font_size, ..default() },
-            TextColor(Color::WHITE),
-            TextLayout::new(Justify::Center, LineBreak::NoWrap),
             Node {
                 top: Val::Px(start_top),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
                 ..default()
             },
-            ScrollTarget,
-        ));
+            ScrollTarget { total_height },
+        )).with_children(|scroll_parent| {
+            for section in &credits_config.sections {
+                scroll_parent.spawn((
+                    Text::new(&section.header),
+                    TextFont { font_size: header_font_size, ..default() },
+                    TextColor(Color::WHITE),
+                    TextLayout::new(Justify::Center, LineBreak::NoWrap),
+                ));
+                scroll_parent.spawn((
+                    Text::new(&section.text),
+                    TextFont { font_size, ..default() },
+                    TextColor(Color::WHITE),
+                    TextLayout::new(Justify::Center, LineBreak::NoWrap),
+                ));
+                scroll_parent.spawn((
+                    Node {
+                        height: Val::Px(SECTION_SPACING),
+                        ..default()
+                    },
+                ));
+            }
+        });
     });
 }
 
@@ -58,13 +98,13 @@ fn scroll_credits(
     time: Res<Time>,
     config: Res<Config>,
     mut next_state: ResMut<NextState<GameState>>,
-    mut query: Query<&mut Node, With<ScrollTarget>>,
+    mut query: Query<(&mut Node, &ScrollTarget)>,
 ) {
-    for mut node in query.iter_mut() {
+    for (mut node, scroll_target) in query.iter_mut() {
         if let Val::Px(top) = &mut node.top {
             *top -= config.game.credits_speed * time.delta_secs();
 
-            if *top < -(config.game.font_size + 30.0) {
+            if *top < -scroll_target.total_height {
                 next_state.set(GameState::Menu);
             }
         }

@@ -1,0 +1,29 @@
+[[sections]]
+header = "Development"
+text = """\
+Developer: Mariusz
+Engine: Bevy 0.18
+Language: Rust
+"""
+
+[[sections]]
+header = "Assets"
+text = """\
+Fonts: Google Fonts
+Sound effects: sfxr
+"""
+
+[[sections]]
+header = "Special Thanks"
+text = """\
+To everyone who supported this project
+and provided feedback.
+"""
+
+[[sections]]
+header = "Play"
+text = """\
+Left paddle: W / S
+Right paddle: Up / Down
+First to 10 wins!
+"""
