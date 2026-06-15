@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::components::GameState;
+use crate::components::{Config, GameState};
 
 #[derive(Component)]
 pub struct MenuText;
@@ -14,12 +14,8 @@ impl Plugin for MenuPlugin {
     }
 }
 
-fn show_menu(mut commands: Commands) {
+fn show_menu(mut commands: Commands, config: Res<Config>) {
     commands.spawn((
-        Text::new("PONG\n\nPress Space to Start"),
-        TextFont { font_size: 64.0, ..default() },
-        TextColor(Color::WHITE),
-        TextLayout::new(Justify::Center, LineBreak::NoWrap),
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),
@@ -31,7 +27,14 @@ fn show_menu(mut commands: Commands) {
             ..default()
         },
         MenuText,
-    ));
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("PONG\n\nPress Space to Start"),
+            TextFont { font_size: config.game.font_size, ..default() },
+            TextColor(Color::WHITE),
+            TextLayout::new(Justify::Center, LineBreak::NoWrap),
+        ));
+    });
 }
 
 fn hide_menu(mut commands: Commands, menu_query: Query<Entity, With<MenuText>>) {

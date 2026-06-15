@@ -18,3 +18,4 @@ divider_width = 2
 
 [game]
 winning_score = 10
+font_size = 20.0

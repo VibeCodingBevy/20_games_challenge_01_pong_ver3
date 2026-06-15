@@ -17,10 +17,6 @@ impl Plugin for GameOverPlugin {
 fn show_game_over(mut commands: Commands, score: Res<Score>, config: Res<Config>) {
     let winner = if score.left >= config.game.winning_score { "Player 1" } else { "Player 2" };
     commands.spawn((
-        Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Menu", winner)),
-        TextFont { font_size: 64.0, ..default() },
-        TextColor(Color::WHITE),
-        TextLayout::new(Justify::Center, LineBreak::NoWrap),
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),
@@ -32,7 +28,14 @@ fn show_game_over(mut commands: Commands, score: Res<Score>, config: Res<Config>
             ..default()
         },
         GameOverText,
-    ));
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new(format!("Game Over\n\n{} Wins!\n\nPress Space to Restart\nPress Escape for Menu", winner)),
+            TextFont { font_size: config.game.font_size, ..default() },
+            TextColor(Color::WHITE),
+            TextLayout::new(Justify::Center, LineBreak::NoWrap),
+        ));
+    });
 }
 
 fn hide_game_over(mut commands: Commands, query: Query<Entity, With<GameOverText>>) {
