@@ -4,6 +4,9 @@ use crate::components::{Config, GameState};
 #[derive(Component)]
 pub struct CreditsText;
 
+#[derive(Component)]
+pub struct ScrollTarget;
+
 pub struct CreditsPlugin;
 
 impl Plugin for CreditsPlugin {
@@ -20,19 +23,31 @@ fn show_credits(mut commands: Commands, config: Res<Config>) {
     let start_top = config.screen.height as f32 + 50.0;
 
     commands.spawn((
-        Text::new("LOL"),
-        TextFont { font_size: config.game.font_size, ..default() },
-        TextColor(Color::WHITE),
-        TextLayout::new(Justify::Center, LineBreak::NoWrap),
         Node {
             position_type: PositionType::Absolute,
             left: Val::Px(0.0),
             right: Val::Px(0.0),
-            top: Val::Px(start_top),
+            top: Val::Px(0.0),
+            bottom: Val::Px(0.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::FlexStart,
+            overflow: Overflow::clip(),
             ..default()
         },
         CreditsText,
-    ));
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("LOL"),
+            TextFont { font_size: config.game.font_size, ..default() },
+            TextColor(Color::WHITE),
+            TextLayout::new(Justify::Center, LineBreak::NoWrap),
+            Node {
+                top: Val::Px(start_top),
+                ..default()
+            },
+            ScrollTarget,
+        ));
+    });
 }
 
 fn hide_credits(mut commands: Commands, query: Query<Entity, With<CreditsText>>) {
@@ -43,14 +58,15 @@ fn hide_credits(mut commands: Commands, query: Query<Entity, With<CreditsText>>)
 
 fn scroll_credits(
     time: Res<Time>,
+    config: Res<Config>,
     mut next_state: ResMut<NextState<GameState>>,
-    mut query: Query<&mut Node, With<CreditsText>>,
+    mut query: Query<&mut Node, With<ScrollTarget>>,
 ) {
     for mut node in query.iter_mut() {
         if let Val::Px(top) = &mut node.top {
             *top -= SCROLL_SPEED * time.delta_secs();
 
-            if *top < -50.0 {
+            if *top < -(config.game.font_size + 30.0) {
                 next_state.set(GameState::Menu);
             }
         }
