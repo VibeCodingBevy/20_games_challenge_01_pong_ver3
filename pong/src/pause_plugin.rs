@@ -161,33 +161,21 @@ fn pause_activate(
 
 fn pause_update_style(
     selection: Res<PauseMenuSelection>,
-    mut buttons: Query<(&Interaction, &PauseMenuItem, &mut BackgroundColor, &Children)>,
-    mut texts: Query<&mut TextColor>,
+    mut buttons: Query<(&Interaction, &PauseMenuItem, &Children)>,
+    mut text_children: Query<(&mut Text, &mut TextColor)>,
 ) {
-    for (interaction, menu_item, mut bg_color, children) in buttons.iter_mut() {
+    for (interaction, menu_item, children) in buttons.iter_mut() {
         let is_selected = menu_item.0 == selection.0;
 
-        let new_bg = if *interaction == Interaction::Pressed {
-            Color::srgba(1.0, 1.0, 1.0, 0.3)
-        } else if *interaction == Interaction::Hovered {
-            Color::srgba(1.0, 1.0, 1.0, 0.15)
-        } else if is_selected {
-            Color::srgba(1.0, 1.0, 1.0, 0.1)
-        } else {
-            Color::NONE
-        };
-
-        let new_text_color = if is_selected && *interaction == Interaction::None {
+        let text_color = if is_selected && *interaction == Interaction::None {
             Color::srgb(1.0, 0.9, 0.5)
         } else {
             Color::WHITE
         };
 
-        bg_color.0 = new_bg;
-
         for child in children.iter() {
-            if let Ok(mut text_color) = texts.get_mut(child) {
-                text_color.0 = new_text_color;
+            if let Ok((_, mut text_color_comp)) = text_children.get_mut(child) {
+                text_color_comp.0 = text_color;
             }
         }
     }

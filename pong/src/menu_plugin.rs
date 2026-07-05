@@ -321,23 +321,13 @@ fn update_menu_button_style(
     for (interaction, item_ref, mut bg_color, children) in buttons.iter_mut() {
         let is_selected = item_ref.0 == navigation.selection;
 
-        let new_bg = if *interaction == Interaction::Pressed {
-            Color::srgba(1.0, 1.0, 1.0, 0.3)
-        } else if *interaction == Interaction::Hovered {
-            Color::srgba(1.0, 1.0, 1.0, 0.15)
-        } else if is_selected {
-            Color::srgba(1.0, 1.0, 1.0, 0.1)
-        } else {
-            Color::NONE
-        };
+        bg_color.0 = Color::NONE;
 
         let new_text_color = if is_selected && *interaction == Interaction::None {
             Color::srgb(1.0, 0.9, 0.5)
         } else {
             Color::WHITE
         };
-
-        bg_color.0 = new_bg;
 
         for child in children.iter() {
             if let Ok(mut text_color) = texts.get_mut(child) {
