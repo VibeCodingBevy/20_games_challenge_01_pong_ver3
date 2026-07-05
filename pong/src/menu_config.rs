@@ -15,8 +15,6 @@ pub enum MenuActionMessage {
     Credits,
     Quit,
     Back,
-    Resume,
-    BackToMenu,
     Custom(String),
 }
 

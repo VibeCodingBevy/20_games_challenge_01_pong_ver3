@@ -1,22 +1,27 @@
 use bevy::prelude::*;
 use crate::components::{Ball, GameState, LeftPaddle, LeftScoreText, PauseOverlay, RightPaddle, RightScoreText, Wall, Divider};
 use crate::game_plugin::GameEntitiesSpawned;
-use crate::menu_config::{MenuActionMessage, MenuDefinition, MenuItem};
 
 pub struct PausePlugin;
 
-#[derive(Resource)]
-struct SavedMenuState {
-    definition: MenuDefinition,
-}
+#[derive(Component)]
+struct PauseMenuItem(usize);
+
+const PAUSE_ITEMS: &[&str] = &["Resume", "Back to Menu"];
+
+#[derive(Resource, Default)]
+struct PauseMenuSelection(usize);
 
 impl Plugin for PausePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Paused), enter_paused)
+        app.init_resource::<PauseMenuSelection>()
+            .add_systems(OnEnter(GameState::Paused), enter_paused)
             .add_systems(OnExit(GameState::Paused), exit_paused)
             .add_systems(Update, toggle_pause.run_if(in_state(GameState::InGame)))
             .add_systems(Update, pause_escape_resume.run_if(in_state(GameState::Paused)))
-            .add_systems(Update, handle_pause_messages.run_if(in_state(GameState::Paused)));
+            .add_systems(Update, pause_navigate.run_if(in_state(GameState::Paused)))
+            .add_systems(Update, pause_activate.run_if(in_state(GameState::Paused)))
+            .add_systems(Update, pause_update_style.run_if(in_state(GameState::Paused)));
     }
 }
 
@@ -29,52 +34,70 @@ fn toggle_pause(
     }
 }
 
-fn enter_paused(
-    mut commands: Commands,
-    definition: Res<MenuDefinition>,
-    saved_state: Option<Res<SavedMenuState>>,
-) {
-    if saved_state.is_none() {
-        commands.insert_resource(SavedMenuState {
-            definition: definition.clone(),
-        });
-    }
-
-    commands.insert_resource(MenuDefinition {
-        title: "PAUSED".into(),
-        items: vec![
-            MenuItem::Action {
-                label: "Resume".into(),
-                action: MenuActionMessage::Resume,
-            },
-            MenuItem::Action {
-                label: "Back to Menu".into(),
-                action: MenuActionMessage::BackToMenu,
-            },
-        ],
-    });
-
+fn enter_paused(mut commands: Commands) {
     commands.spawn((
         PauseOverlay,
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
             position_type: PositionType::Absolute,
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         },
-        ZIndex(10),
-        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
-    ));
+    )).with_children(|parent| {
+        parent.spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            ZIndex(-1),
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
+        ));
+
+        parent.spawn((
+            Text::new("PAUSED"),
+            TextFont { font_size: 80.0, ..default() },
+            TextColor(Color::WHITE),
+            TextLayout::new(Justify::Center, LineBreak::NoWrap),
+            Node {
+                margin: UiRect::bottom(Val::Px(40.0)),
+                ..default()
+            },
+        ));
+
+        for (index, label) in PAUSE_ITEMS.iter().enumerate() {
+            parent.spawn((
+                Button,
+                Node {
+                    width: Val::Px(300.0),
+                    height: Val::Px(60.0),
+                    margin: UiRect::vertical(Val::Px(8.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                BackgroundColor(Color::NONE),
+                PauseMenuItem(index),
+            )).with_children(|button_parent| {
+                button_parent.spawn((
+                    Text::new(label.to_string()),
+                    TextFont { font_size: 36.0, ..default() },
+                    TextColor(Color::WHITE),
+                    TextLayout::new(Justify::Center, LineBreak::NoWrap),
+                ));
+            });
+        }
+    });
 }
 
 fn exit_paused(
     mut commands: Commands,
-    saved_state: Res<SavedMenuState>,
     overlay: Query<Entity, With<PauseOverlay>>,
 ) {
-    commands.insert_resource(saved_state.definition.clone());
-    commands.remove_resource::<SavedMenuState>();
-
     for entity in overlay.iter() {
         commands.entity(entity).despawn();
     }
@@ -89,16 +112,42 @@ fn pause_escape_resume(
     }
 }
 
-fn handle_pause_messages(
-    mut events: MessageReader<MenuActionMessage>,
+fn pause_navigate(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut selection: ResMut<PauseMenuSelection>,
+) {
+    let count = PAUSE_ITEMS.len();
+    if keys.just_pressed(KeyCode::ArrowDown) {
+        selection.0 = (selection.0 + 1) % count;
+    } else if keys.just_pressed(KeyCode::ArrowUp) {
+        selection.0 = if selection.0 == 0 { count - 1 } else { selection.0 - 1 };
+    }
+}
+
+fn pause_activate(
+    keys: Res<ButtonInput<KeyCode>>,
+    selection: Res<PauseMenuSelection>,
     mut commands: Commands,
     game_entities: Query<Entity, Or<(With<Ball>, With<LeftPaddle>, With<RightPaddle>, With<Wall>, With<Divider>, With<LeftScoreText>, With<RightScoreText>)>>,
     mut next_state: ResMut<NextState<GameState>>,
+    click_query: Query<(&Interaction, &PauseMenuItem), (With<Button>, Changed<Interaction>)>,
 ) {
-    for event in events.read() {
-        match event {
-            MenuActionMessage::Resume => next_state.set(GameState::InGame),
-            MenuActionMessage::BackToMenu => {
+    let mut activated: Option<usize> = None;
+
+    if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space) {
+        activated = Some(selection.0);
+    }
+
+    for (interaction, menu_item) in click_query.iter() {
+        if *interaction == Interaction::Pressed {
+            activated = Some(menu_item.0);
+        }
+    }
+
+    if let Some(index) = activated {
+        match index {
+            0 => next_state.set(GameState::InGame),
+            1 => {
                 for entity in game_entities.iter() {
                     commands.entity(entity).despawn();
                 }
@@ -106,6 +155,40 @@ fn handle_pause_messages(
                 next_state.set(GameState::Menu);
             }
             _ => {}
+        }
+    }
+}
+
+fn pause_update_style(
+    selection: Res<PauseMenuSelection>,
+    mut buttons: Query<(&Interaction, &PauseMenuItem, &mut BackgroundColor, &Children)>,
+    mut texts: Query<&mut TextColor>,
+) {
+    for (interaction, menu_item, mut bg_color, children) in buttons.iter_mut() {
+        let is_selected = menu_item.0 == selection.0;
+
+        let new_bg = if *interaction == Interaction::Pressed {
+            Color::srgba(1.0, 1.0, 1.0, 0.3)
+        } else if *interaction == Interaction::Hovered {
+            Color::srgba(1.0, 1.0, 1.0, 0.15)
+        } else if is_selected {
+            Color::srgba(1.0, 1.0, 1.0, 0.1)
+        } else {
+            Color::NONE
+        };
+
+        let new_text_color = if is_selected && *interaction == Interaction::None {
+            Color::srgb(1.0, 0.9, 0.5)
+        } else {
+            Color::WHITE
+        };
+
+        bg_color.0 = new_bg;
+
+        for child in children.iter() {
+            if let Ok(mut text_color) = texts.get_mut(child) {
+                text_color.0 = new_text_color;
+            }
         }
     }
 }
