@@ -1,25 +1,72 @@
 use bevy::prelude::*;
-use crate::components::{ButtonIndex, GameState, MenuAction, MenuRoot, MenuSelection};
+use crate::components::{GameState, MenuRoot};
+use crate::menu_config::{MenuActionMessage, MenuDefinition, MenuItem, MenuItemRef, MenuNavigation};
 
 pub struct MenuPlugin;
 
+#[derive(Resource, Default)]
+struct MenuNeedsRebuild(bool);
+
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MenuSelection>()
-            .add_systems(OnEnter(GameState::Menu), (reset_selection, spawn_menu))
+        app.init_resource::<MenuNavigation>()
+            .init_resource::<MenuNeedsRebuild>()
+            .init_resource::<Messages<MenuActionMessage>>()
+            .add_systems(OnEnter(GameState::Menu), (reset_navigation, spawn_menu))
             .add_systems(Update, navigate_menu.run_if(in_state(GameState::Menu)))
             .add_systems(Update, activate_selected.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, update_menu_button_style.run_if(in_state(GameState::Menu)))
             .add_systems(Update, handle_menu_interaction.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, menu_respawner.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, update_menu_labels.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, update_menu_button_style.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, handle_menu_action_events.run_if(in_state(GameState::Menu)))
             .add_systems(OnExit(GameState::Menu), despawn_menu);
     }
 }
 
-fn reset_selection(mut selection: ResMut<MenuSelection>) {
-    selection.0 = 0;
+fn current_items<'a>(definition: &'a MenuDefinition, navigation: &MenuNavigation) -> &'a [MenuItem] {
+    let mut items = &definition.items;
+    for &(i, _) in &navigation.path {
+        if let MenuItem::Submenu { items: sub, .. } = &items[i] {
+            items = sub;
+        }
+    }
+    items
 }
 
-fn spawn_menu(mut commands: Commands) {
+fn current_title<'a>(definition: &'a MenuDefinition, navigation: &MenuNavigation) -> &'a str {
+    if navigation.path.is_empty() {
+        return &definition.title;
+    }
+    let mut items = &definition.items;
+    let mut label = &definition.title;
+    for &(i, _) in &navigation.path {
+        if let MenuItem::Submenu { label: lbl, items: sub, .. } = &items[i] {
+            label = lbl;
+            items = sub;
+        }
+    }
+    label
+}
+
+fn item_label(item: &MenuItem) -> String {
+    match item {
+        MenuItem::Action { label, .. } => label.clone(),
+        MenuItem::Submenu { label, .. } => format!("{} >", label),
+        MenuItem::Toggle { label, enabled } => {
+            format!("{}: {}", label, if *enabled { "ON" } else { "OFF" })
+        }
+        MenuItem::Slider { label, value, .. } => format!("{}: {:.0}", label, value),
+        MenuItem::Select { label, options, selected } => {
+            format!("{}: {}", label, options[*selected])
+        }
+    }
+}
+
+fn spawn_menu_inner(commands: &mut Commands, definition: &MenuDefinition, navigation: &MenuNavigation) {
+    let items = current_items(definition, navigation);
+    let title = current_title(definition, navigation);
+
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -32,7 +79,7 @@ fn spawn_menu(mut commands: Commands) {
         MenuRoot,
     )).with_children(|parent| {
         parent.spawn((
-            Text::new("PONG"),
+            Text::new(title.to_string()),
             TextFont { font_size: 80.0, ..default() },
             TextColor(Color::WHITE),
             TextLayout::new(Justify::Center, LineBreak::NoWrap),
@@ -42,13 +89,7 @@ fn spawn_menu(mut commands: Commands) {
             },
         ));
 
-        let items: [(MenuAction, &str); 3] = [
-            (MenuAction::StartGame, "Start Game"),
-            (MenuAction::Credits, "Credits"),
-            (MenuAction::Quit, "Quit"),
-        ];
-
-        for (index, (action, label)) in items.iter().enumerate() {
+        for (index, item) in items.iter().enumerate() {
             parent.spawn((
                 Button,
                 Node {
@@ -60,11 +101,10 @@ fn spawn_menu(mut commands: Commands) {
                     ..default()
                 },
                 BackgroundColor(Color::NONE),
-                action.clone(),
-                ButtonIndex(index),
+                MenuItemRef(index),
             )).with_children(|button_parent| {
                 button_parent.spawn((
-                    Text::new(*label),
+                    Text::new(item_label(item)),
                     TextFont { font_size: 36.0, ..default() },
                     TextColor(Color::WHITE),
                     TextLayout::new(Justify::Center, LineBreak::NoWrap),
@@ -72,6 +112,15 @@ fn spawn_menu(mut commands: Commands) {
             });
         }
     });
+}
+
+fn reset_navigation(mut navigation: ResMut<MenuNavigation>) {
+    navigation.path.clear();
+    navigation.selection = 0;
+}
+
+fn spawn_menu(mut commands: Commands, definition: Res<MenuDefinition>, navigation: Res<MenuNavigation>) {
+    spawn_menu_inner(&mut commands, &definition, &navigation);
 }
 
 fn despawn_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
@@ -82,8 +131,9 @@ fn despawn_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
 
 fn navigate_menu(
     keys: Res<ButtonInput<KeyCode>>,
-    mut selection: ResMut<MenuSelection>,
-    buttons: Query<(), (With<Button>, With<MenuAction>)>,
+    mut navigation: ResMut<MenuNavigation>,
+    mut definition: ResMut<MenuDefinition>,
+    buttons: Query<(), With<MenuItemRef>>,
 ) {
     let count = buttons.iter().len();
     if count == 0 {
@@ -91,58 +141,185 @@ fn navigate_menu(
     }
 
     if keys.just_pressed(KeyCode::ArrowDown) {
-        selection.0 = (selection.0 + 1) % count;
-    } else if keys.just_pressed(KeyCode::ArrowUp) {
-        selection.0 = if selection.0 == 0 { count - 1 } else { selection.0 - 1 };
+        navigation.selection = (navigation.selection + 1) % count;
+        return;
+    }
+    if keys.just_pressed(KeyCode::ArrowUp) {
+        navigation.selection = if navigation.selection == 0 {
+            count - 1
+        } else {
+            navigation.selection - 1
+        };
+        return;
+    }
+
+    if keys.just_pressed(KeyCode::ArrowLeft) || keys.just_pressed(KeyCode::ArrowRight) {
+        let delta = if keys.just_pressed(KeyCode::ArrowRight) { 1 } else { -1 };
+        let path = navigation.path.clone();
+        let sel = navigation.selection;
+        modify_value_at_path(&mut definition.items, &path, sel, delta);
+    }
+}
+
+fn modify_value_at_path(
+    items: &mut Vec<MenuItem>,
+    path: &[(usize, usize)],
+    selection: usize,
+    delta: isize,
+) {
+    let mut current = items;
+    for &(i, _) in path {
+        if let Some(MenuItem::Submenu { items: sub, .. }) = current.get_mut(i) {
+            current = sub;
+        } else {
+            return;
+        }
+    }
+    if selection < current.len() {
+        apply_delta(&mut current[selection], delta);
+    }
+}
+
+fn apply_delta(item: &mut MenuItem, delta: isize) {
+    match item {
+        MenuItem::Toggle { enabled, .. } => *enabled = !*enabled,
+        MenuItem::Slider { value, min, max, .. } => {
+            let step = (*max - *min) / 20.0;
+            *value = (*value + delta as f32 * step).clamp(*min, *max);
+        }
+        MenuItem::Select { selected, options, .. } => {
+            *selected = ((*selected as isize + delta).rem_euclid(options.len() as isize)) as usize;
+        }
+        _ => {}
     }
 }
 
 fn activate_selected(
     keys: Res<ButtonInput<KeyCode>>,
-    selection: Res<MenuSelection>,
-    query: Query<(&MenuAction, &ButtonIndex)>,
-    mut next_state: ResMut<NextState<GameState>>,
-    mut exit: MessageWriter<AppExit>,
+    mut navigation: ResMut<MenuNavigation>,
+    mut definition: ResMut<MenuDefinition>,
+    mut events: MessageWriter<MenuActionMessage>,
+    mut needs_rebuild: ResMut<MenuNeedsRebuild>,
 ) {
     if !keys.just_pressed(KeyCode::Enter) && !keys.just_pressed(KeyCode::Space) {
         return;
     }
 
-    for (action, index) in query.iter() {
-        if index.0 == selection.0 {
-            match action {
-                MenuAction::StartGame => next_state.set(GameState::InGame),
-                MenuAction::Credits => next_state.set(GameState::Credits),
-                MenuAction::Quit => { exit.write(AppExit::Success); },
-            }
+    let path = navigation.path.clone();
+    let sel = navigation.selection;
+    activate_at_path(&mut definition.items, &path, sel, &mut navigation, &mut events, &mut needs_rebuild);
+}
+
+fn activate_at_path(
+    items: &mut Vec<MenuItem>,
+    path: &[(usize, usize)],
+    selection: usize,
+    navigation: &mut MenuNavigation,
+    events: &mut MessageWriter<MenuActionMessage>,
+    needs_rebuild: &mut MenuNeedsRebuild,
+) {
+    let mut current = items;
+    for &(i, _) in path {
+        if let Some(MenuItem::Submenu { items: sub, .. }) = current.get_mut(i) {
+            current = sub;
+        } else {
             return;
+        }
+    }
+    if selection >= current.len() {
+        return;
+    }
+
+    match &mut current[selection] {
+        MenuItem::Submenu { .. } => {
+            navigation.path.push((selection, navigation.selection));
+            navigation.selection = 0;
+            needs_rebuild.0 = true;
+        }
+        MenuItem::Action { action, .. } => {
+            if matches!(action, MenuActionMessage::Back) {
+                if let Some((_, saved_selection)) = navigation.path.pop() {
+                    navigation.selection = saved_selection;
+                    needs_rebuild.0 = true;
+                }
+            } else {
+                events.write(action.clone());
+            }
+        }
+        _ => {
+            apply_delta(&mut current[selection], 1);
         }
     }
 }
 
 fn handle_menu_interaction(
-    query: Query<(&Interaction, &MenuAction), (With<Button>, Changed<Interaction>)>,
-    mut next_state: ResMut<NextState<GameState>>,
-    mut exit: MessageWriter<AppExit>,
+    mut navigation: ResMut<MenuNavigation>,
+    mut definition: ResMut<MenuDefinition>,
+    mut events: MessageWriter<MenuActionMessage>,
+    mut needs_rebuild: ResMut<MenuNeedsRebuild>,
+    query: Query<(&Interaction, &MenuItemRef), (With<Button>, Changed<Interaction>)>,
 ) {
-    for (interaction, action) in query.iter() {
-        if *interaction == Interaction::Pressed {
-            match action {
-                MenuAction::StartGame => next_state.set(GameState::InGame),
-                MenuAction::Credits => next_state.set(GameState::Credits),
-                MenuAction::Quit => { exit.write(AppExit::Success); },
+    for (interaction, item_ref) in query.iter() {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        let path = navigation.path.clone();
+        activate_at_path(
+            &mut definition.items,
+            &path,
+            item_ref.0,
+            &mut navigation,
+            &mut events,
+            &mut needs_rebuild,
+        );
+    }
+}
+
+fn menu_respawner(
+    mut commands: Commands,
+    definition: Res<MenuDefinition>,
+    navigation: Res<MenuNavigation>,
+    mut needs_rebuild: ResMut<MenuNeedsRebuild>,
+    root_query: Query<Entity, With<MenuRoot>>,
+) {
+    if !needs_rebuild.0 {
+        return;
+    }
+    needs_rebuild.0 = false;
+
+    for entity in root_query.iter() {
+        commands.entity(entity).despawn();
+    }
+    spawn_menu_inner(&mut commands, &definition, &navigation);
+}
+
+fn update_menu_labels(
+    definition: Res<MenuDefinition>,
+    navigation: Res<MenuNavigation>,
+    buttons: Query<(&MenuItemRef, &Children)>,
+    mut texts: Query<&mut Text>,
+) {
+    let items = current_items(&definition, &navigation);
+    for (item_ref, children) in buttons.iter() {
+        if item_ref.0 >= items.len() {
+            continue;
+        }
+        let label = item_label(&items[item_ref.0]);
+        for child in children.iter() {
+            if let Ok(mut text) = texts.get_mut(child) {
+                *text = Text::new(label.clone());
             }
         }
     }
 }
 
 fn update_menu_button_style(
-    selection: Res<MenuSelection>,
-    mut buttons: Query<(&Interaction, &ButtonIndex, &mut BackgroundColor, &Children), (With<Button>, With<MenuAction>)>,
+    navigation: Res<MenuNavigation>,
+    mut buttons: Query<(&Interaction, &MenuItemRef, &mut BackgroundColor, &Children), With<Button>>,
     mut texts: Query<&mut TextColor>,
 ) {
-    for (interaction, index, mut bg_color, children) in buttons.iter_mut() {
-        let is_selected = index.0 == selection.0;
+    for (interaction, item_ref, mut bg_color, children) in buttons.iter_mut() {
+        let is_selected = item_ref.0 == navigation.selection;
 
         let new_bg = if *interaction == Interaction::Pressed {
             Color::srgba(1.0, 1.0, 1.0, 0.3)
@@ -166,6 +343,21 @@ fn update_menu_button_style(
             if let Ok(mut text_color) = texts.get_mut(child) {
                 text_color.0 = new_text_color;
             }
+        }
+    }
+}
+
+fn handle_menu_action_events(
+    mut events: MessageReader<MenuActionMessage>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    for event in events.read() {
+        match event {
+            MenuActionMessage::StartGame => next_state.set(GameState::InGame),
+            MenuActionMessage::Credits => next_state.set(GameState::Credits),
+            MenuActionMessage::Quit => { exit.write(AppExit::Success); },
+            _ => {}
         }
     }
 }

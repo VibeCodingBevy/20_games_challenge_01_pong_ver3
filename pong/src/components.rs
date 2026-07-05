@@ -33,20 +33,6 @@ pub struct Velocity(pub Vec2);
 #[derive(Component)] pub struct RightScoreText;
 #[derive(Component)] pub struct MenuRoot;
 
-#[derive(Component, Clone)]
-pub enum MenuAction {
-    StartGame,
-    Credits,
-    Quit,
-}
-
-#[derive(Component)]
-pub struct ButtonIndex(pub usize);
-
-#[derive(Resource, Default)]
-pub struct MenuSelection(pub usize);
-
-
 #[derive(Resource)] pub struct Score { pub left: u32, pub right: u32 }
 
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
