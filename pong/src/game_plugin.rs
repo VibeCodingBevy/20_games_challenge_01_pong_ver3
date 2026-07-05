@@ -2,6 +2,9 @@ use bevy::prelude::*;
 use rand::Rng;
 use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider, LeftScoreText, RightScoreText};
 
+#[derive(Resource)]
+pub struct GameEntitiesSpawned;
+
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct GameLogicSet;
 
@@ -10,7 +13,7 @@ pub struct GamePlugin;
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::InGame), (spawn_game_objects, reset_score))
-            .add_systems(OnExit(GameState::InGame), despawn_game_objects)
+            .add_systems(OnEnter(GameState::GameOver), despawn_game_objects)
             .configure_sets(FixedUpdate, GameLogicSet)
             .add_systems(
                 FixedUpdate,
@@ -29,12 +32,25 @@ impl Plugin for GamePlugin {
     }
 }
 
-fn reset_score(mut score: ResMut<Score>) {
+fn reset_score(
+    mut score: ResMut<Score>,
+    marker: Option<Res<GameEntitiesSpawned>>,
+) {
+    if marker.is_some() {
+        return;
+    }
     score.left = 0;
     score.right = 0;
 }
 
-fn spawn_game_objects(mut commands: Commands, config: Res<Config>) {
+fn spawn_game_objects(
+    mut commands: Commands,
+    config: Res<Config>,
+    marker: Option<Res<GameEntitiesSpawned>>,
+) {
+    if marker.is_some() {
+        return;
+    }
     let wall_thickness = config.arena.wall_thickness;
     let screen_width = config.screen.width as f32;
     let screen_height = config.screen.height as f32;
@@ -107,6 +123,8 @@ fn spawn_game_objects(mut commands: Commands, config: Res<Config>) {
         },
         RightScoreText,
     ));
+
+    commands.insert_resource(GameEntitiesSpawned);
 }
 
 fn despawn_game_objects(
@@ -128,6 +146,7 @@ fn despawn_game_objects(
         .chain(right_score_texts.iter()) {
         commands.entity(entity).despawn();
     }
+    commands.remove_resource::<GameEntitiesSpawned>();
 }
 
 fn move_paddles_system(

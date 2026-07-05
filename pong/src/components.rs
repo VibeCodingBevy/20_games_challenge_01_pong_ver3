@@ -42,4 +42,8 @@ pub enum GameState {
     InGame,
     GameOver,
     Credits,
+    Paused,
 }
+
+#[derive(Component)]
+pub struct PauseOverlay;

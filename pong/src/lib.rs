@@ -7,6 +7,7 @@ pub mod menu_config;
 pub mod menu_plugin;
 pub mod game_over_plugin;
 pub mod game_plugin;
+pub mod pause_plugin;
 
 pub use components::*;
 
@@ -19,6 +20,7 @@ impl Plugin for PongPlugin {
             .add_plugins(game_plugin::GamePlugin)
             .add_plugins(game_over_plugin::GameOverPlugin)
             .add_plugins(credits_plugin::CreditsPlugin)
+            .add_plugins(pause_plugin::PausePlugin)
             .add_systems(Startup, setup);
     }
 }

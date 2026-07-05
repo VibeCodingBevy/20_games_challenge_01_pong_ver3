@@ -13,14 +13,51 @@ impl Plugin for MenuPlugin {
             .init_resource::<MenuNeedsRebuild>()
             .init_resource::<Messages<MenuActionMessage>>()
             .add_systems(OnEnter(GameState::Menu), (reset_navigation, spawn_menu))
-            .add_systems(Update, navigate_menu.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, activate_selected.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, handle_menu_interaction.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, menu_respawner.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, update_menu_labels.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, update_menu_button_style.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, handle_menu_action_events.run_if(in_state(GameState::Menu)))
-            .add_systems(OnExit(GameState::Menu), despawn_menu);
+            .add_systems(OnEnter(GameState::Paused), (reset_navigation, spawn_menu))
+            .add_systems(
+                Update,
+                navigate_menu.run_if(
+                    in_state(GameState::Menu).or(in_state(GameState::Paused)),
+                ),
+            )
+            .add_systems(
+                Update,
+                activate_selected.run_if(
+                    in_state(GameState::Menu).or(in_state(GameState::Paused)),
+                ),
+            )
+            .add_systems(
+                Update,
+                handle_menu_interaction.run_if(
+                    in_state(GameState::Menu).or(in_state(GameState::Paused)),
+                ),
+            )
+            .add_systems(
+                Update,
+                menu_respawner.run_if(
+                    in_state(GameState::Menu).or(in_state(GameState::Paused)),
+                ),
+            )
+            .add_systems(
+                Update,
+                update_menu_labels.run_if(
+                    in_state(GameState::Menu).or(in_state(GameState::Paused)),
+                ),
+            )
+            .add_systems(
+                Update,
+                update_menu_button_style.run_if(
+                    in_state(GameState::Menu).or(in_state(GameState::Paused)),
+                ),
+            )
+            .add_systems(
+                Update,
+                handle_menu_action_events.run_if(
+                    in_state(GameState::Menu).or(in_state(GameState::Paused)),
+                ),
+            )
+            .add_systems(OnExit(GameState::Menu), despawn_menu)
+            .add_systems(OnExit(GameState::Paused), despawn_menu);
     }
 }
 

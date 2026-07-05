@@ -15,10 +15,12 @@ pub enum MenuActionMessage {
     Credits,
     Quit,
     Back,
+    Resume,
+    BackToMenu,
     Custom(String),
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct MenuDefinition {
     pub title: String,
     pub items: Vec<MenuItem>,
