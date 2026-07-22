@@ -5,6 +5,7 @@ height = 600
 [ball]
 diameter = 20
 speed = 220
+speed_increment = 10
 
 [paddle]
 width = 30

@@ -212,11 +212,11 @@ fn handle_wall_collisions_system(
     if ball_transform.translation.y - radius <= -half_height + wall_thickness {
         ball_transform.translation.y = -half_height + wall_thickness + radius;
         velocity.0.y = speed;
-        ball_speed.0 += 5.0;
+        ball_speed.0 += config.ball.speed_increment;
     } else if ball_transform.translation.y + radius >= half_height - wall_thickness {
         ball_transform.translation.y = half_height - wall_thickness - radius;
         velocity.0.y = -speed;
-        ball_speed.0 += 5.0;
+        ball_speed.0 += config.ball.speed_increment;
     }
 }
 
@@ -243,7 +243,7 @@ fn handle_paddle_collisions_system(
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(speed * angle.cos(), speed * angle.sin());
             ball_transform.translation.x = paddle_right + radius;
-            ball_speed.0 += 5.0;
+            ball_speed.0 += config.ball.speed_increment;
             break;
         }
     }
@@ -259,7 +259,7 @@ fn handle_paddle_collisions_system(
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(-speed * angle.cos(), speed * angle.sin());
             ball_transform.translation.x = paddle_left - radius;
-            ball_speed.0 += 5.0;
+            ball_speed.0 += config.ball.speed_increment;
             break;
         }
     }

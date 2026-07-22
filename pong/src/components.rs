@@ -13,7 +13,7 @@ pub struct Config {
 #[derive(Deserialize)]
 pub struct Screen { pub width: u32, pub height: u32 }
 #[derive(Deserialize)]
-pub struct BallConfig { pub diameter: f32, pub speed: f32 }
+pub struct BallConfig { pub diameter: f32, pub speed: f32, pub speed_increment: f32 }
 #[derive(Deserialize)]
 pub struct Paddle { pub width: f32, pub height: f32, pub margin: f32, pub speed: f32 }
 #[derive(Deserialize)] pub struct Arena { pub wall_thickness: f32, pub divider_width: f32 }
