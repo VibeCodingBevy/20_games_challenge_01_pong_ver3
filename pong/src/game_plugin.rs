@@ -84,7 +84,13 @@ fn spawn_game_objects(
     ball.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.ball.diameter, config.ball.diameter)));
     ball.insert(Transform::from_xyz(0.0, 0.0, 0.0));
     ball.insert(Ball);
-    ball.insert(Velocity(Vec2::new(config.ball.speed, config.ball.speed)));
+    let mut rng = rand::rng();
+    let y_direction = if rng.random::<f32>() > 0.5 {
+        config.ball.speed
+    } else {
+        -config.ball.speed
+    };
+    ball.insert(Velocity(Vec2::new(-config.ball.speed, y_direction)));
 
     commands.spawn((
         Sprite::from_color(Color::srgb(0.7, 0.7, 0.7), Vec2::new(config.arena.divider_width, screen_height)),
