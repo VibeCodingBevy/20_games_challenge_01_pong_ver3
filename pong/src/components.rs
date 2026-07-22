@@ -22,8 +22,11 @@ pub struct Paddle { pub width: f32, pub height: f32, pub margin: f32, pub speed:
 #[derive(Component)] pub struct LeftPaddle;
 #[derive(Component)] pub struct RightPaddle;
 #[derive(Component)]
-#[require(Transform, Velocity)]
+#[require(Transform, Velocity, BallSpeed)]
 pub struct Ball;
+
+#[derive(Component, Default)]
+pub struct BallSpeed(pub f32);
 
 #[derive(Component, Default)]
 pub struct Velocity(pub Vec2);

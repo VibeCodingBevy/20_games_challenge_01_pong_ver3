@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use rand::Rng;
-use crate::components::{Ball, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider, LeftScoreText, RightScoreText};
+use crate::components::{Ball, BallSpeed, Config, GameState, LeftPaddle, RightPaddle, Score, Velocity, Wall, Divider, LeftScoreText, RightScoreText};
 
 #[derive(Resource)]
 pub struct GameEntitiesSpawned;
@@ -84,6 +84,7 @@ fn spawn_game_objects(
     ball.insert(Sprite::from_color(Color::srgb(1.0, 1.0, 1.0), Vec2::new(config.ball.diameter, config.ball.diameter)));
     ball.insert(Transform::from_xyz(0.0, 0.0, 0.0));
     ball.insert(Ball);
+    ball.insert(BallSpeed(config.ball.speed));
     let mut rng = rand::rng();
     let y_direction = if rng.random::<f32>() > 0.5 {
         config.ball.speed
@@ -200,34 +201,36 @@ fn move_ball_system(
 
 fn handle_wall_collisions_system(
     config: Res<Config>,
-    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
+    ball: Single<(&mut Transform, &mut Velocity, &mut BallSpeed), With<Ball>>,
 ) {
-    let (mut ball_transform, mut velocity) = ball.into_inner();
+    let (mut ball_transform, mut velocity, mut ball_speed) = ball.into_inner();
     let half_height = config.screen.height as f32 / 2.0;
     let radius = config.ball.diameter / 2.0;
     let wall_thickness = config.arena.wall_thickness;
-    let speed = config.ball.speed;
+    let speed = ball_speed.0;
 
     if ball_transform.translation.y - radius <= -half_height + wall_thickness {
         ball_transform.translation.y = -half_height + wall_thickness + radius;
         velocity.0.y = speed;
+        ball_speed.0 += 5.0;
     } else if ball_transform.translation.y + radius >= half_height - wall_thickness {
         ball_transform.translation.y = half_height - wall_thickness - radius;
         velocity.0.y = -speed;
+        ball_speed.0 += 5.0;
     }
 }
 
 fn handle_paddle_collisions_system(
     config: Res<Config>,
-    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
+    ball: Single<(&mut Transform, &mut Velocity, &mut BallSpeed), With<Ball>>,
     left_paddles: Query<&Transform, (With<LeftPaddle>, Without<Ball>)>,
     right_paddles: Query<&Transform, (With<RightPaddle>, Without<Ball>)>,
 ) {
-    let (mut ball_transform, mut velocity) = ball.into_inner();
+    let (mut ball_transform, mut velocity, mut ball_speed) = ball.into_inner();
     let radius = config.ball.diameter / 2.0;
     let paddle_width = config.paddle.width;
     let paddle_height = config.paddle.height;
-    let speed = config.ball.speed;
+    let speed = ball_speed.0;
 
     for left_paddle in left_paddles.iter() {
         let paddle_right = left_paddle.translation.x + paddle_width / 2.0;
@@ -240,6 +243,7 @@ fn handle_paddle_collisions_system(
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(speed * angle.cos(), speed * angle.sin());
             ball_transform.translation.x = paddle_right + radius;
+            ball_speed.0 += 5.0;
             break;
         }
     }
@@ -255,6 +259,7 @@ fn handle_paddle_collisions_system(
             let angle = offset.clamp(-1.0, 1.0) * (std::f32::consts::PI / 4.0);
             velocity.0 = Vec2::new(-speed * angle.cos(), speed * angle.sin());
             ball_transform.translation.x = paddle_left - radius;
+            ball_speed.0 += 5.0;
             break;
         }
     }
@@ -264,9 +269,9 @@ fn handle_scoring_system(
     config: Res<Config>,
     mut score: ResMut<Score>,
     mut next_state: ResMut<NextState<GameState>>,
-    ball: Single<(&mut Transform, &mut Velocity), With<Ball>>,
+    ball: Single<(&mut Transform, &mut Velocity, &mut BallSpeed), With<Ball>>,
 ) {
-    let (mut ball_transform, mut velocity) = ball.into_inner();
+    let (mut ball_transform, mut velocity, mut ball_speed) = ball.into_inner();
     let half_width = config.screen.width as f32 / 2.0;
     let speed = config.ball.speed;
 
@@ -284,6 +289,7 @@ fn handle_scoring_system(
     if scored {
         ball_transform.translation.x = 0.0;
         ball_transform.translation.y = 0.0;
+        ball_speed.0 = speed;
 
         let mut rng = rand::rng();
         let y_direction = if rng.random::<f32>() > 0.5 { speed } else { -speed };
