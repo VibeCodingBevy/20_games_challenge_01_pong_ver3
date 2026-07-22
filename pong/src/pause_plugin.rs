@@ -173,9 +173,14 @@ fn pause_update_style(
             Color::WHITE
         };
 
+        let label = PAUSE_ITEMS[menu_item.0];
+        let prefix = if is_selected { "> " } else { "  " };
+        let display = format!("{}{}", prefix, label);
+
         for child in children.iter() {
-            if let Ok((_, mut text_color_comp)) = text_children.get_mut(child) {
+            if let Ok((mut text, mut text_color_comp)) = text_children.get_mut(child) {
                 text_color_comp.0 = text_color;
+                *text = Text::new(display.clone());
             }
         }
     }

@@ -52,7 +52,7 @@ fn current_title<'a>(definition: &'a MenuDefinition, navigation: &MenuNavigation
 fn item_label(item: &MenuItem) -> String {
     match item {
         MenuItem::Action { label, .. } => label.clone(),
-        MenuItem::Submenu { label, .. } => format!("{} >", label),
+        MenuItem::Submenu { label, .. } => label.clone(),
         MenuItem::Toggle { label, enabled } => {
             format!("{}: {}", label, if *enabled { "ON" } else { "OFF" })
         }
@@ -305,9 +305,11 @@ fn update_menu_labels(
             continue;
         }
         let label = item_label(&items[item_ref.0]);
+        let prefix = if item_ref.0 == navigation.selection { "> " } else { "  " };
+        let display = format!("{}{}", prefix, label);
         for child in children.iter() {
             if let Ok(mut text) = texts.get_mut(child) {
-                *text = Text::new(label.clone());
+                *text = Text::new(&display);
             }
         }
     }
