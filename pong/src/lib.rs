@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 
 pub mod components;
-pub mod credits_config;
-pub mod credits_plugin;
 pub mod menu_config;
 pub mod menu_plugin;
 pub mod game_over_plugin;
@@ -19,7 +17,7 @@ impl Plugin for PongPlugin {
             .add_plugins(menu_plugin::MenuPlugin)
             .add_plugins(game_plugin::GamePlugin)
             .add_plugins(game_over_plugin::GameOverPlugin)
-            .add_plugins(credits_plugin::CreditsPlugin)
+            .add_plugins(bevy_flock_credits_plugin::CreditsPlugin)
             .add_plugins(pause_plugin::PausePlugin)
             .add_systems(Startup, setup);
     }

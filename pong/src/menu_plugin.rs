@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_flock_credits_plugin::CreditsState;
 use crate::components::{GameState, MenuRoot};
 use crate::menu_config::{MenuActionMessage, MenuDefinition, MenuItem, MenuItemRef, MenuNavigation};
 
@@ -13,13 +14,13 @@ impl Plugin for MenuPlugin {
             .init_resource::<MenuNeedsRebuild>()
             .init_resource::<Messages<MenuActionMessage>>()
             .add_systems(OnEnter(GameState::Menu), (reset_navigation, spawn_menu))
-            .add_systems(Update, navigate_menu.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, activate_selected.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, handle_menu_interaction.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, navigate_menu.run_if(in_state(GameState::Menu).and(in_state(CreditsState::Idle))))
+            .add_systems(Update, activate_selected.run_if(in_state(GameState::Menu).and(in_state(CreditsState::Idle))))
+            .add_systems(Update, handle_menu_interaction.run_if(in_state(GameState::Menu).and(in_state(CreditsState::Idle))))
             .add_systems(Update, menu_respawner.run_if(in_state(GameState::Menu)))
             .add_systems(Update, update_menu_labels.run_if(in_state(GameState::Menu)))
             .add_systems(Update, update_menu_button_style.run_if(in_state(GameState::Menu)))
-            .add_systems(Update, handle_menu_action_events.run_if(in_state(GameState::Menu)))
+            .add_systems(Update, handle_menu_action_events.run_if(in_state(GameState::Menu).and(in_state(CreditsState::Idle))))
             .add_systems(OnExit(GameState::Menu), despawn_menu);
     }
 }
@@ -342,12 +343,13 @@ fn update_menu_button_style(
 fn handle_menu_action_events(
     mut events: MessageReader<MenuActionMessage>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut next_credits_state: ResMut<NextState<CreditsState>>,
     mut exit: MessageWriter<AppExit>,
 ) {
     for event in events.read() {
         match event {
             MenuActionMessage::StartGame => next_state.set(GameState::InGame),
-            MenuActionMessage::Credits => next_state.set(GameState::Credits),
+            MenuActionMessage::Credits => next_credits_state.set(CreditsState::Active),
             MenuActionMessage::Quit => { exit.write(AppExit::Success); },
             _ => {}
         }

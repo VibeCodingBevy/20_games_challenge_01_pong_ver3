@@ -347,6 +347,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy-flock-credits-plugin"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "serde",
+]
+
+[[package]]
 name = "bevy_a11y"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3907,6 +3915,7 @@ name = "pong"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy-flock-credits-plugin",
  "getrandom 0.3.4",
  "rand",
  "serde",

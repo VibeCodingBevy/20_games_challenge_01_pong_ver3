@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_flock_credits_plugin::CreditsState;
 use crate::components::{Config, GameState, Score};
 
 #[derive(Component)]
@@ -47,6 +48,7 @@ fn hide_game_over(mut commands: Commands, query: Query<Entity, With<GameOverText
 fn game_over_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut next_credits_state: ResMut<NextState<CreditsState>>,
     mut score: ResMut<Score>,
 ) {
     if keys.just_pressed(KeyCode::Space) {
@@ -56,6 +58,7 @@ fn game_over_input(
     } else if keys.just_pressed(KeyCode::Escape) {
         score.left = 0;
         score.right = 0;
-        next_state.set(GameState::Credits);
+        next_state.set(GameState::Menu);
+        next_credits_state.set(CreditsState::Active);
     }
 }

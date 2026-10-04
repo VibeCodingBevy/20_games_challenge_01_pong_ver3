@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use pong_lib::credits_config::CreditsConfig;
+use bevy_flock_credits_plugin::CreditsConfig;
 use pong_lib::menu_config::{MenuActionMessage, MenuDefinition, MenuItem};
 use pong_lib::{Config, PongPlugin, Score};
 
