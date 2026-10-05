@@ -10,7 +10,7 @@ path = "src/lib.rs"
 [dependencies]
 bevy = { version = "0.18", features = ["2d", "ui", "web", "default_font"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
-bevy-flock-credits-plugin = { path = "../../bevy-flock-credits-plugin/bevy-flock-credits-plugin" }
+bevy-flock-credits-plugin = { git = "https://github.com/VibeCodingBevy/bevy-flock-credits-plugin.git", rev = "4884f1c45252e43b890d6efc7d6e3dae68529ac9" }
 rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"

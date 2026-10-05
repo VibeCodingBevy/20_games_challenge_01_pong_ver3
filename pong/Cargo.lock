@@ -349,6 +349,7 @@ dependencies = [
 [[package]]
 name = "bevy-flock-credits-plugin"
 version = "0.1.0"
+source = "git+https://github.com/VibeCodingBevy/bevy-flock-credits-plugin.git?rev=4884f1c45252e43b890d6efc7d6e3dae68529ac9#4884f1c45252e43b890d6efc7d6e3dae68529ac9"
 dependencies = [
  "bevy",
  "serde",
